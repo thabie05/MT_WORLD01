@@ -57,10 +57,12 @@ function AttendanceRegister({ currentUser, onLogout }) {
   const [showStats, setShowStats] = useState(false);
   const [editEmployeeId, setEditEmployeeId] = useState(null);
   const [editEmployeeName, setEditEmployeeName] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState(null); // For individual report
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null); // { employee, x, y } or null
 
   const [popup, setPopup] = useState(null);
   const popupRef = useRef(null);
+  const contextMenuRef = useRef(null);
   const [showHistory, setShowHistory] = useState(false);
 
   const today = new Date();
@@ -106,6 +108,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
     saveData();
   }, [employees, attendance, edits, history, loading]);
 
+  // Close popup on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (popupRef.current && popupRef.current.contains(e.target)) return;
@@ -114,6 +117,16 @@ function AttendanceRegister({ currentUser, onLogout }) {
     if (popup) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [popup]);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (contextMenuRef.current && contextMenuRef.current.contains(e.target)) return;
+      setContextMenu(null);
+    };
+    if (contextMenu) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [contextMenu]);
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -217,6 +230,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
 
   const startEditEmployee = (emp) => {
     if (!isAdmin) return;
+    setContextMenu(null);
     setEditEmployeeId(emp.id);
     setEditEmployeeName(emp.name);
   };
@@ -250,6 +264,17 @@ function AttendanceRegister({ currentUser, onLogout }) {
     setPopup({ employeeId, day, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
   };
 
+  // Open context menu on employee name click (admin) or view report (user)
+  const handleEmployeeClick = (e, emp) => {
+    e.stopPropagation();
+    if (isAdmin) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setContextMenu({ employee: emp, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
+    } else {
+      setSelectedEmployee(emp);
+    }
+  };
+
   const getSortedEmployees = () => {
     if (sortOrder === 'none') return employees;
     return [...employees].sort((a, b) => {
@@ -260,7 +285,6 @@ function AttendanceRegister({ currentUser, onLogout }) {
 
   const toggleSort = () => setSortOrder((prev) => prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none');
 
-  // Stats
   const calculateStats = () => {
     let presentCount = 0, absentCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
     for (const emp of employees) {
@@ -281,7 +305,6 @@ function AttendanceRegister({ currentUser, onLogout }) {
     ].filter((d) => d.value > 0);
   };
 
-  // Individual report
   const getEmployeeReport = (empId) => {
     const months = [];
     for (let m = 0; m < 12; m++) {
@@ -371,11 +394,11 @@ function AttendanceRegister({ currentUser, onLogout }) {
                   const total = getTotalWorkedDays(emp.id);
                   return (
                     <tr key={emp.id}>
-                      <td className="sticky-col employee-name" onDoubleClick={() => startEditEmployee(emp)}>
+                      <td className="sticky-col employee-name">
                         {editEmployeeId === emp.id ? (
                           <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="edit-name-input" autoFocus />
                         ) : (
-                          <span className="emp-name clickable" onClick={() => setSelectedEmployee(emp)} title="Click to view report">
+                          <span className="emp-name clickable" onClick={(e) => handleEmployeeClick(e, emp)} title={isAdmin ? 'Click for options' : 'Click to view report'}>
                             {emp.name}
                           </span>
                         )}
@@ -414,8 +437,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
 
         <footer className="app-footer">
           <p>Click a blank cell to set attendance, click again to change once. Locked after two edits.</p>
-          <p className="report-hint">Click an employee name to view their annual report.</p>
-          {isAdmin && <p className="admin-hint">Admin: Double-click employee name to edit. Use 🗑️ to delete.</p>}
+          {isAdmin && <p className="admin-hint">Admin: Click employee name for options. Use 🗑️ to delete.</p>}
         </footer>
       </div>
 
@@ -439,6 +461,18 @@ function AttendanceRegister({ currentUser, onLogout }) {
             <button className="close-history-btn" onClick={() => setShowHistory(false)}>Close</button>
           </div>
         </div>
+      )}
+
+      {/* Admin Context Menu */}
+      {contextMenu && isAdmin && createPortal(
+        <div ref={contextMenuRef} className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+          <button onClick={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }} className="context-menu-item">
+            📊 View Report
+          </button>
+          <button onClick={() => startEditEmployee(contextMenu.employee)} className="context-menu-item">
+            ✏️ Rename
+          </button>
+        </div>, document.body
       )}
 
       {/* Individual Employee Report Modal */}
