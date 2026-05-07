@@ -1,3 +1,6 @@
+/* ==========================================================================
+   RESET & BASE
+   ========================================================================== */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -10,59 +13,186 @@ body {
   color: #333;
 }
 
+/* ==========================================================================
+   APP CONTAINER
+   ========================================================================== */
 .App {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
 }
 
-.app-header {
+/* ==========================================================================
+   LOGIN PAGE
+   ========================================================================== */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  padding: 20px;
+}
+
+.login-card {
+  background: white;
+  border-radius: 20px;
+  padding: 30px 35px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
   text-align: center;
+}
+
+.login-card h1 {
+  font-size: 2rem;
+  margin-bottom: 5px;
+  color: #0f172a;
+}
+
+.login-card h2 {
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: #475569;
   margin-bottom: 25px;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.login-card button {
+  width: 100%;
+  padding: 12px;
+  background: #0f172a;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.login-card button:hover {
+  background: #1e293b;
+}
+
+.error-msg {
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+}
+
+/* ==========================================================================
+   HEADER (Attendance Register)
+   ========================================================================== */
+.app-header {
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(135deg, #1a237e, #0d47a1);
   color: white;
-  padding: 25px 15px;
+  padding: 20px 25px 15px;
   border-radius: 12px;
+  margin-bottom: 25px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
-/* Logo styling */
+/* Top row: left content + right logo */
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* Left side (user + logout) */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Right side (logo only) */
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
 .logo {
   max-height: 80px;
-  margin-bottom: 10px;
   display: block;
-  margin-left: auto;
-  margin-right: auto;
 }
 
-.app-header h1 {
-  font-size: 2.5rem;
-  letter-spacing: 2px;
-  margin-bottom: 5px;
+/* Bottom centred title */
+.header-title {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 12px 0 0 0;
+  width: 100%;
+  letter-spacing: 1px;
 }
 
-.tagline {
-  font-size: 1rem;
-  font-style: italic;
-  opacity: 0.9;
+/* User info line */
+.user-info {
+  font-size: 0.95rem;
+  opacity: 0.95;
+  white-space: nowrap;
 }
 
-.app-header h2 {
-  margin-top: 10px;
-  font-weight: 400;
-  font-size: 1.4rem;
+/* Logout button */
+.logout-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================================================
+   MAIN CARD
+   ========================================================================== */
+.main-card {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* ==========================================================================
+   CONTROLS (month navigation, add employee, history button)
+   ========================================================================== */
 .controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
+  gap: 16px;
   margin-bottom: 20px;
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .month-navigation {
@@ -71,7 +201,8 @@ body {
   gap: 15px;
 }
 
-.month-navigation button {
+.month-navigation button,
+.nav-btn {
   background: #1a237e;
   color: white;
   border: none;
@@ -81,9 +212,12 @@ body {
   font-size: 1.2rem;
   cursor: pointer;
   transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.month-navigation button:hover {
+.nav-btn:hover {
   background: #0d47a1;
 }
 
@@ -92,6 +226,27 @@ body {
   font-size: 1.2rem;
   min-width: 150px;
   text-align: center;
+}
+
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.history-btn:hover {
+  background: #e2e8f0;
 }
 
 .add-employee {
@@ -104,9 +259,15 @@ body {
   border: 1px solid #ccc;
   border-radius: 6px;
   font-size: 0.9rem;
+  outline: none;
 }
 
-.add-employee button {
+.add-employee input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.add-btn {
   background: #2e7d32;
   color: white;
   border: none;
@@ -114,27 +275,28 @@ body {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
+  transition: background 0.2s;
 }
 
-.add-employee button:hover {
+.add-btn:hover {
   background: #1b5e20;
 }
 
+/* ==========================================================================
+   NO EMPLOYEES MESSAGE
+   ========================================================================== */
 .no-employees {
   text-align: center;
   padding: 40px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
   color: #666;
 }
 
+/* ==========================================================================
+   ROLLCALL TABLE
+   ========================================================================== */
 .rollcall-table-wrapper {
   overflow-x: auto;
-  background: white;
   border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  padding: 10px;
 }
 
 .rollcall-table {
@@ -143,6 +305,7 @@ body {
   min-width: 700px;
 }
 
+/* Sticky employee column */
 .sticky-col {
   position: sticky;
   left: 0;
@@ -180,8 +343,7 @@ body {
   white-space: nowrap;
 }
 
-/* Remove button class removed – no longer needed */
-
+/* Day cells */
 .day-cell {
   width: 36px;
   height: 38px;
@@ -191,6 +353,7 @@ body {
   border-bottom: 1px solid #e0e0e0;
   transition: background 0.2s;
   user-select: none;
+  position: relative;
 }
 
 .day-cell.absent {
@@ -204,12 +367,52 @@ body {
   font-weight: bold;
 }
 
+/* Present + edited */
+.day-cell.present.edited {
+  background: #c6f6d5;
+}
+
+/* Absent + edited */
+.day-cell.absent.edited {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .day-cell:hover {
   background: #e8f5e9;
 }
 
 .day-cell.present:hover {
   background: #81c784;
+}
+
+.day-cell.present.edited:hover {
+  background: #a5d6a7;
+}
+
+.day-cell.absent.edited:hover {
+  background: #fde68a;
+}
+
+.check-mark {
+  font-weight: 700;
+}
+
+.absent-mark {
+  font-weight: bold;
+  color: #b91c1c;
+  opacity: 0.7;
+}
+
+/* Edit indicator (✎) */
+.edit-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.6rem;
+  color: #c2410c;
+  line-height: 1;
+  opacity: 0.9;
 }
 
 .total-cell {
@@ -219,9 +422,277 @@ body {
   border-bottom: 1px solid #e0e0e0;
 }
 
+/* ==========================================================================
+   ATTENDANCE POPUP
+   ========================================================================== */
+.attendance-popup {
+  position: absolute;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 1000;
+  animation: fadeIn 0.1s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.popup-btn {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.present-btn {
+  background: #dcfce7;
+  color: #166534;
+}
+.present-btn:hover {
+  background: #bbf7d0;
+}
+
+.absent-btn {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.absent-btn:hover {
+  background: #fecaca;
+}
+
+/* ==========================================================================
+   HISTORY MODAL
+   ========================================================================== */
+.history-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.history-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.history-modal h2 {
+  margin-bottom: 16px;
+  color: #0f172a;
+}
+
+.history-table-container {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.history-table th,
+.history-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.history-table th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.close-history-btn {
+  margin-top: 16px;
+  padding: 8px 18px;
+  background: #0f172a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.close-history-btn:hover {
+  background: #1e293b;
+}
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
 .app-footer {
   text-align: center;
   margin-top: 20px;
   color: #555;
   font-size: 0.9rem;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS (max‑width: 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .App {
+    padding: 10px;
+  }
+
+  /* Header adjustments */
+  .app-header {
+    padding: 15px;
+  }
+
+  .header-top {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .header-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .header-right {
+    order: -1;          /* logo above user info on very small screens */
+  }
+
+  .logo {
+    max-height: 60px;
+  }
+
+  .header-title {
+    font-size: 1.4rem;
+    margin-top: 10px;
+  }
+
+  /* Controls – stack everything */
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .month-navigation {
+    justify-content: center;
+  }
+
+  .controls-right {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .history-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .add-employee {
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .add-employee input {
+    flex: 1;
+  }
+
+  .add-btn {
+    white-space: nowrap;
+  }
+
+  /* Rollcall table */
+  .rollcall-table {
+    min-width: 500px;        /* still scrollable but less wide */
+  }
+
+  .day-cell {
+    width: 28px;
+    height: 30px;
+    font-size: 0.75rem;
+  }
+
+  .employee-header,
+  .day-header,
+  .total-header {
+    font-size: 0.7rem;
+    padding: 6px 4px;
+  }
+
+  .total-cell {
+    font-size: 0.8rem;
+  }
+
+  .emp-name {
+    font-size: 0.85rem;
+  }
+
+  /* Attendance popup – adjust size */
+  .attendance-popup {
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .popup-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  /* History modal */
+  .history-modal {
+    padding: 16px;
+    max-height: 90vh;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+
+  /* Login card */
+  .login-card {
+    padding: 20px;
+    margin: 0 10px;
+  }
+
+  .login-card h1 {
+    font-size: 1.8rem;
+  }
+
+  .login-card h2 {
+    font-size: 1rem;
+  }
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-size: 1.5rem;
+  color: #1a237e;
 }
