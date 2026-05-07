@@ -6,9 +6,11 @@ import './App.css';
 
 // Hardcoded users – keep as before
 const USERS = [
-  { username: 'admin', password: 'admin123', fullName: 'Administrator' },
-  { username: 'john', password: 'john123', fullName: 'John Doe' },
-  { username: 'jane', password: 'jane123', fullName: 'Jane Smith' },
+  { username: 'Thabelo', password: 'admin123', fullName: 'Thabelo Tshishonga' },
+  { username: 'Shonisani', password: 'shoni123', fullName: 'Shonisani Mukwevho' },
+  { username: 'Percy', password: 'percy123', fullName: 'Percy Tshilimandila' },
+  { username: 'Soler', password: 'soler123', fullName: 'Soler thagwana' },
+  { username: 'lucky', password: 'lucky123', fullName: 'Lucky Tshilimandila' },
 ];
 
 /* -------------------- LOGIN -------------------- */
