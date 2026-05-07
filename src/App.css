@@ -7,6 +7,11 @@
   padding: 0;
 }
 
+#root {
+  border: none;
+  outline: none;
+}
+
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #f4f6f9;
@@ -326,6 +331,8 @@ body {
   text-align: center;
   font-size: 0.85rem;
   border-bottom: 2px solid #ccc;
+  border-left: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
 }
 
 .total-header {
@@ -354,11 +361,12 @@ body {
   cursor: pointer;
   font-size: 0.9rem;
   border-bottom: 1px solid #e0e0e0;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
   transition: background 0.2s;
   user-select: none;
   position: relative;
 }
-
 .day-cell.absent {
   background: #fff;
   color: #ccc;
