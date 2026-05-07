@@ -10,6 +10,8 @@
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #f4f6f9;
+  background-position: fixed;
+  background-size: cover;
   color: #333;
 }
 
@@ -757,4 +759,213 @@ body {
 
 .sort-btn:hover {
   background: #4b5563;
+}
+
+/* ==========================================================================
+   EXTRA SMALL SCREENS (max‑width: 350px)
+   ========================================================================== */
+@media (max-width: 350px) {
+
+  body{
+    background-color: #fff;
+    background-position: fixed;
+    background-size: cover;
+  }
+
+  .App {
+    padding: 4px;
+  }
+
+  /* Header */
+  .app-header {
+    padding: 10px 8px;
+    border-radius: 8px;
+  }
+
+  .header-top {
+    gap: 6px;
+  }
+
+  .header-left {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 0.8rem;
+  }
+
+  .user-info {
+    font-size: 0.75rem;
+  }
+
+  .logout-btn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .logo {
+    max-height: 40px;
+  }
+
+  .header-title {
+    font-size: 1rem;
+    margin-top: 6px;
+  }
+
+  /* Main card */
+  .main-card {
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  /* Controls */
+  .controls {
+    gap: 8px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+
+  .month-navigation {
+    gap: 6px;
+  }
+
+  .nav-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+
+  .month-display {
+    font-size: 0.85rem;
+    min-width: 110px;
+  }
+
+  .controls-right {
+    gap: 4px;
+  }
+
+  .history-btn,
+  .sort-btn {
+    padding: 5px 8px;
+    font-size: 0.7rem;
+    min-width: auto;
+  }
+
+  .add-employee {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .add-employee input {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+
+  .add-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    width: 100%;
+  }
+
+  /* Table */
+  .rollcall-table {
+    min-width: 380px;
+  }
+
+  .employee-header,
+  .day-header,
+  .total-header {
+    font-size: 0.6rem;
+    padding: 4px 2px;
+  }
+
+  .day-cell {
+    width: 22px;
+    height: 24px;
+    font-size: 0.65rem;
+  }
+
+  .employee-name {
+    padding: 4px 6px;
+  }
+
+  .emp-name {
+    font-size: 0.7rem;
+  }
+
+  .total-cell {
+    font-size: 0.7rem;
+    padding: 4px;
+  }
+
+  .check-mark,
+  .absent-mark {
+    font-size: 0.7rem;
+  }
+
+  .edit-indicator {
+    font-size: 0.45rem;
+    top: 1px;
+    right: 1px;
+  }
+
+  /* Popup */
+  .attendance-popup {
+    padding: 4px;
+    gap: 3px;
+  }
+
+  .popup-btn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  /* History modal */
+  .history-modal {
+    padding: 10px;
+  }
+
+  .history-modal h2 {
+    font-size: 1rem;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding: 4px 5px;
+    font-size: 0.65rem;
+  }
+
+  .close-history-btn {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+  }
+
+  /* Login card */
+  .login-card {
+    padding: 15px;
+    margin: 0 5px;
+  }
+
+  .login-card h1 {
+    font-size: 1.4rem;
+  }
+
+  .login-card h2 {
+    font-size: 0.85rem;
+    margin-bottom: 15px;
+  }
+
+  .login-card input {
+    padding: 8px;
+    font-size: 0.85rem;
+  }
+
+  .login-card button {
+    padding: 8px;
+    font-size: 0.85rem;
+  }
+
+  /* Footer */
+  .app-footer {
+    font-size: 0.7rem;
+    margin-top: 10px;
+  }
 }
