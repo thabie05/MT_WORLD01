@@ -235,8 +235,9 @@ body {
 }
 
 .history-btn {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  background: #6b7280;
+  color: white;
+  border: none;
   padding: 8px 14px;
   border-radius: 8px;
   font-weight: 500;
@@ -246,7 +247,7 @@ body {
 }
 
 .history-btn:hover {
-  background: #e2e8f0;
+  background: #4b5563;
 }
 
 .add-employee {
@@ -606,12 +607,6 @@ body {
     gap: 10px;
   }
 
-  .history-btn {
-    width: 100%;
-    text-align: center;
-    color: #000;
-  }
-
   .add-employee {
     flex-direction: row;
     width: 100%;
@@ -696,4 +691,70 @@ body {
   min-height: 100vh;
   font-size: 1.5rem;
   color: #1a237e;
+}
+
+/* Weekend styling */
+.day-cell.weekend {
+  background: #e5e7eb;          /* light grey */
+  color: #6b7280;
+  cursor: not-allowed;          /* optional: indicate non‑working day */
+}
+
+.day-cell.weekend:hover {
+  background: #d1d5db;
+}
+
+/* Holiday styling */
+.day-cell.holiday {
+  background: #fef08a;          /* soft yellow */
+  color: #92400e;
+  font-weight: 500;
+}
+
+.day-cell.holiday:hover {
+  background: #fde047;
+}
+
+/* If a weekend is also a holiday, prefer holiday colour */
+.day-cell.weekend.holiday {
+  background: #fef08a;
+}
+
+/* If present + weekend, keep the present colour? Decide what you prefer. */
+/* Here we make weekends always grey, even if marked present – you can adjust */
+.day-cell.present.weekend {
+  background: #a5d6a7;   /* still green */
+  color: #1b5e20;
+}
+
+.day-cell.present.holiday {
+  background: #fef08a;   /* keep holiday yellow even if present */
+  color: #92400e;
+}
+
+.day-cell.absent.weekend {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.day-cell.absent.holiday {
+  background: #fef08a;
+  color: #92400e;
+}
+
+.sort-btn {
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  min-width: 70px;
+}
+
+.sort-btn:hover {
+  background: #4b5563;
 }

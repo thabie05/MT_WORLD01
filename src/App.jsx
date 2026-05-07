@@ -4,7 +4,6 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import './App.css';
 
-// Hardcoded users – keep as before
 const USERS = [
   { username: 'Thabelo', password: 'admin123', fullName: 'Thabelo Tshishonga' },
   { username: 'Shonisani', password: 'shoni123', fullName: 'Shonisani Mukwevho' },
@@ -66,6 +65,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
   const [edits, setEdits] = useState({});
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState('none'); // 👈 new
 
   const [popup, setPopup] = useState(null);
   const popupRef = useRef(null);
@@ -76,7 +76,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [newEmployeeName, setNewEmployeeName] = useState('');
 
-  // ---------- Fetch initial data from Firestore ----------
+  // ---------- Firestore fetch ----------
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -103,18 +103,13 @@ function AttendanceRegister({ currentUser, onLogout }) {
     fetchData();
   }, []);
 
-  // ---------- Persist to Firestore ----------
+  // ---------- Firestore save ----------
   useEffect(() => {
     if (loading) return;
     const saveData = async () => {
       try {
         const docRef = doc(db, 'rollcall', 'data');
-        await setDoc(docRef, {
-          employees,
-          attendance,
-          edits,
-          history,
-        }, { merge: true });
+        await setDoc(docRef, { employees, attendance, edits, history }, { merge: true });
       } catch (err) {
         console.error('Failed to save data:', err);
       }
@@ -125,9 +120,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
   // close popup on outside click
   useEffect(() => {
     const handleClick = (e) => {
-      if (popupRef.current && popupRef.current.contains(e.target)) {
-        return;
-      }
+      if (popupRef.current && popupRef.current.contains(e.target)) return;
       setPopup(null);
     };
     if (popup) {
@@ -142,7 +135,68 @@ function AttendanceRegister({ currentUser, onLogout }) {
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
-  // ---------- Mark attendance ----------
+  // SA holidays helper
+  const getSAHolidays = (year) => {
+    const holidays = [
+      { date: `${year}-01-01`, name: "New Year's Day" },
+      { date: `${year}-03-21`, name: "Human Rights Day" },
+      { date: `${year}-04-27`, name: "Freedom Day" },
+      { date: `${year}-05-01`, name: "Workers' Day" },
+      { date: `${year}-06-16`, name: "Youth Day" },
+      { date: `${year}-08-09`, name: "National Women's Day" },
+      { date: `${year}-09-24`, name: "Heritage Day" },
+      { date: `${year}-12-16`, name: "Day of Reconciliation" },
+      { date: `${year}-12-25`, name: "Christmas Day" },
+      { date: `${year}-12-26`, name: "Day of Goodwill" },
+    ];
+
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+    const easterSunday = new Date(year, month - 1, day);
+    const goodFriday = new Date(easterSunday);
+    goodFriday.setDate(easterSunday.getDate() - 2);
+    const familyDay = new Date(easterSunday);
+    familyDay.setDate(easterSunday.getDate() + 1);
+
+    const formatDate = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    };
+
+    holidays.push(
+      { date: formatDate(goodFriday), name: "Good Friday" },
+      { date: formatDate(familyDay), name: "Family Day" }
+    );
+    return holidays;
+  };
+
+  const isWeekend = (day) => {
+    const date = new Date(currentYear, currentMonth, day);
+    const dow = date.getDay();
+    return dow === 0 || dow === 6;
+  };
+
+  const isHoliday = (day) => {
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const holidays = getSAHolidays(currentYear);
+    return holidays.some((h) => h.date === dateKey);
+  };
+
   const markAttendance = (employeeId, day, status) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
@@ -164,7 +218,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
       return updated;
     });
 
-    const employee = employees.find(emp => emp.id === employeeId);
+    const employee = employees.find((emp) => emp.id === employeeId);
     const entry = {
       id: Date.now(),
       employeeId,
@@ -176,7 +230,6 @@ function AttendanceRegister({ currentUser, onLogout }) {
       editedAt: new Date().toISOString(),
     };
     setHistory((prev) => [entry, ...prev]);
-
     setPopup(null);
   };
 
@@ -263,13 +316,32 @@ function AttendanceRegister({ currentUser, onLogout }) {
     });
   };
 
+  // 👇 sort helpers
+  const getSortedEmployees = () => {
+    if (sortOrder === 'none') return employees;
+    return [...employees].sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if (sortOrder === 'asc') return nameA.localeCompare(nameB);
+      if (sortOrder === 'desc') return nameB.localeCompare(nameA);
+      return 0;
+    });
+  };
+
+  const toggleSort = () => {
+    setSortOrder((prev) => {
+      if (prev === 'none') return 'asc';
+      if (prev === 'asc') return 'desc';
+      return 'none';
+    });
+  };
+
   if (loading) {
     return <div className="loading">Loading data…</div>;
   }
 
   return (
     <div className="App">
-      {/* ---------- HEADER ---------- */}
       <header className="app-header">
         <div className="header-top">
           <div className="header-left">
@@ -284,23 +356,19 @@ function AttendanceRegister({ currentUser, onLogout }) {
       </header>
 
       <div className="main-card">
-        {/* ---------- CONTROLS ---------- */}
         <div className="controls">
           <div className="month-navigation">
-            <button onClick={handlePrevMonth} className="nav-btn">
-              <span>&lsaquo;</span>
-            </button>
-            <span className="month-display">
-              {monthNames[currentMonth]} {currentYear}
-            </span>
-            <button onClick={handleNextMonth} className="nav-btn">
-              <span>&rsaquo;</span>
-            </button>
+            <button onClick={handlePrevMonth} className="nav-btn"><span>&lsaquo;</span></button>
+            <span className="month-display">{monthNames[currentMonth]} {currentYear}</span>
+            <button onClick={handleNextMonth} className="nav-btn"><span>&rsaquo;</span></button>
           </div>
 
           <div className="controls-right">
-            <button onClick={() => setShowHistory(true)} className="history-btn">
-              View History
+            <button onClick={() => setShowHistory(true)} className="history-btn">View History</button>
+            <button onClick={toggleSort} className="sort-btn">
+              {sortOrder === 'none' && '⇅ Sort'}
+              {sortOrder === 'asc' && '↓ A‑Z'}
+              {sortOrder === 'desc' && '↑ Z‑A'}
             </button>
             <div className="add-employee">
               <input
@@ -315,7 +383,6 @@ function AttendanceRegister({ currentUser, onLogout }) {
           </div>
         </div>
 
-        {/* ---------- NO EMPLOYEES MESSAGE ---------- */}
         {employees.length === 0 ? (
           <div className="no-employees">
             <p>No employees added yet. Start by adding some names above.</p>
@@ -333,7 +400,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp) => {
+                {getSortedEmployees().map((emp) => {
                   const total = getTotalWorkedDays(emp.id);
                   return (
                     <tr key={emp.id}>
@@ -346,13 +413,20 @@ function AttendanceRegister({ currentUser, onLogout }) {
                         const edited = isEdited(emp.id, day);
                         const editors = getEditors(emp.id, day);
                         const showEditors = (present || absent) && editors.length > 0;
+                        const weekend = isWeekend(day);
+                        const holiday = isHoliday(day);
 
                         return (
                           <td
                             key={day}
-                            className={`day-cell ${present ? 'present' : ''} ${absent ? 'absent' : ''} ${edited ? 'edited' : ''}`}
+                            className={`day-cell ${present ? 'present' : ''} ${absent ? 'absent' : ''} ${edited ? 'edited' : ''} ${weekend ? 'weekend' : ''} ${holiday ? 'holiday' : ''}`}
                             onClick={(e) => openPopup(e, emp.id, day)}
-                            title={`${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}${showEditors ? ` (edited by ${editors.join(', ')})` : ''}`}
+                            title={
+                              `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}` +
+                              (weekend ? ' (Weekend)' : '') +
+                              (holiday ? ` (${getSAHolidays(currentYear).find(h => h.date === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)?.name})` : '') +
+                              (showEditors ? ` (edited by ${editors.join(', ')})` : '')
+                            }
                           >
                             {present && <span className="check-mark">✓</span>}
                             {absent && <span className="absent-mark">✗</span>}
@@ -374,7 +448,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
         </footer>
       </div>
 
-      {/* ---------- HISTORY MODAL ---------- */}
+      {/* History Modal */}
       {showHistory && (
         <div className="history-modal-overlay" onClick={() => setShowHistory(false)}>
           <div className="history-modal" onClick={(e) => e.stopPropagation()}>
@@ -414,7 +488,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
         </div>
       )}
 
-      {/* ---------- ATTENDANCE POPUP ---------- */}
+      {/* Attendance Popup */}
       {popup &&
         createPortal(
           <div ref={popupRef} className="attendance-popup" style={{ left: popup.x, top: popup.y }}>
@@ -439,11 +513,25 @@ function AttendanceRegister({ currentUser, onLogout }) {
 
 /* -------------------- MAIN APP -------------------- */
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('mtworld_current_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    localStorage.setItem('mtworld_current_user', JSON.stringify(user));
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('mtworld_current_user');
+  };
+
   return currentUser ? (
-    <AttendanceRegister currentUser={currentUser} onLogout={() => setCurrentUser(null)} />
+    <AttendanceRegister currentUser={currentUser} onLogout={handleLogout} />
   ) : (
-    <Login onLogin={setCurrentUser} />
+    <Login onLogin={handleLogin} />
   );
 }
 
