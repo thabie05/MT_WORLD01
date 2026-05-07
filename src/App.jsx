@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from './firebase';  // adjust path if needed
+import { db } from './firebase';
 import './App.css';
 
-// Hardcoded users – you can replace these with Firebase Auth later
+// Hardcoded users – keep as before
 const USERS = [
   { username: 'admin', password: 'admin123', fullName: 'Administrator' },
   { username: 'john', password: 'john123', fullName: 'John Doe' },
   { username: 'jane', password: 'jane123', fullName: 'Jane Smith' },
 ];
 
-/* -------------------- LOGIN COMPONENT -------------------- */
+/* -------------------- LOGIN -------------------- */
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -59,14 +59,12 @@ function Login({ onLogin }) {
 
 /* -------------------- ATTENDANCE REGISTER -------------------- */
 function AttendanceRegister({ currentUser, onLogout }) {
-  // ---------- Load data from Firestore ----------
   const [employees, setEmployees] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [edits, setEdits] = useState({});
   const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);   // show loading while fetching
+  const [loading, setLoading] = useState(true);
 
-  // Popup & UI
   const [popup, setPopup] = useState(null);
   const popupRef = useRef(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -76,7 +74,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [newEmployeeName, setNewEmployeeName] = useState('');
 
-  // ── Fetch initial data from Firestore ──
+  // ---------- Fetch initial data from Firestore ----------
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -89,7 +87,6 @@ function AttendanceRegister({ currentUser, onLogout }) {
           setEdits(data.edits || {});
           setHistory(data.history || []);
         } else {
-          // No document yet – start with defaults
           setEmployees([
             { id: '1', name: 'John Doe' },
             { id: '2', name: 'Jane Smith' },
@@ -104,9 +101,8 @@ function AttendanceRegister({ currentUser, onLogout }) {
     fetchData();
   }, []);
 
-  // ── Persist all data to Firestore whenever it changes ──
+  // ---------- Persist to Firestore ----------
   useEffect(() => {
-    // Don't write while still loading initial data
     if (loading) return;
     const saveData = async () => {
       try {
@@ -116,7 +112,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
           attendance,
           edits,
           history,
-        }, { merge: true });   // merge ensures we don't accidentally delete fields
+        }, { merge: true });
       } catch (err) {
         console.error('Failed to save data:', err);
       }
@@ -124,7 +120,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
     saveData();
   }, [employees, attendance, edits, history, loading]);
 
-  // close popup if clicking outside
+  // close popup on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (popupRef.current && popupRef.current.contains(e.target)) {
@@ -141,21 +137,19 @@ function AttendanceRegister({ currentUser, onLogout }) {
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
   // ---------- Mark attendance ----------
   const markAttendance = (employeeId, day, status) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    // Edit count
     setEdits((prev) => {
       const current = prev[`${employeeId}-${dateKey}`];
       const count = typeof current === 'number' ? current : (current ? 1 : 0);
       return { ...prev, [`${employeeId}-${dateKey}`]: count + 1 };
     });
 
-    // Attendance
     setAttendance((prev) => {
       const updated = { ...prev };
       const empAttendance = { ...(updated[employeeId] || {}) };
@@ -168,7 +162,6 @@ function AttendanceRegister({ currentUser, onLogout }) {
       return updated;
     });
 
-    // History
     const employee = employees.find(emp => emp.id === employeeId);
     const entry = {
       id: Date.now(),
@@ -252,7 +245,6 @@ function AttendanceRegister({ currentUser, onLogout }) {
 
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Popup with 2‑edit lock
   const openPopup = (e, employeeId, day) => {
     e.stopPropagation();
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -275,16 +267,170 @@ function AttendanceRegister({ currentUser, onLogout }) {
 
   return (
     <div className="App">
-      {/* Header, controls, table, popup, modal – identical to before */}
-      {/* ... (use the same JSX from the previous full example) ... */}
-      {/* I'll include an abbreviated version for brevity, but you should paste the full JSX from the earlier "two-edit" version. */}
-      {/* For space, I show the structure – replace with your existing return block. */}
-      <header className="app-header">…</header>
-      <div className="main-card">…</div>
-      {/* Footer: */}
-      <footer className="app-footer">
-        <p>Click a blank cell to set attendance, click again to change once. Locked after two edits.</p>
-      </footer>
+      {/* ---------- HEADER ---------- */}
+      <header className="app-header">
+        <div className="header-top">
+          <div className="header-left">
+            <span className="user-info">Logged in as: {currentUser.fullName}</span>
+            <button onClick={onLogout} className="logout-btn">Logout</button>
+          </div>
+          <div className="header-right">
+            <img src="/logo.png" alt="MT WORLD Logo" className="logo" />
+          </div>
+        </div>
+        <h1 className="header-title">MT World Employee Attendance Register</h1>
+      </header>
+
+      <div className="main-card">
+        {/* ---------- CONTROLS ---------- */}
+        <div className="controls">
+          <div className="month-navigation">
+            <button onClick={handlePrevMonth} className="nav-btn">
+              <span>&lsaquo;</span>
+            </button>
+            <span className="month-display">
+              {monthNames[currentMonth]} {currentYear}
+            </span>
+            <button onClick={handleNextMonth} className="nav-btn">
+              <span>&rsaquo;</span>
+            </button>
+          </div>
+
+          <div className="controls-right">
+            <button onClick={() => setShowHistory(true)} className="history-btn">
+              View History
+            </button>
+            <div className="add-employee">
+              <input
+                type="text"
+                placeholder="Employee name"
+                value={newEmployeeName}
+                onChange={(e) => setNewEmployeeName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
+              />
+              <button onClick={addEmployee} className="add-btn">+ Add</button>
+            </div>
+          </div>
+        </div>
+
+        {/* ---------- NO EMPLOYEES MESSAGE ---------- */}
+        {employees.length === 0 ? (
+          <div className="no-employees">
+            <p>No employees added yet. Start by adding some names above.</p>
+          </div>
+        ) : (
+          <div className="rollcall-table-wrapper">
+            <table className="rollcall-table">
+              <thead>
+                <tr>
+                  <th className="sticky-col employee-header">Employee</th>
+                  {daysArray.map((day) => (
+                    <th key={day} className="day-header">{day}</th>
+                  ))}
+                  <th className="total-header">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp) => {
+                  const total = getTotalWorkedDays(emp.id);
+                  return (
+                    <tr key={emp.id}>
+                      <td className="sticky-col employee-name">
+                        <span className="emp-name">{emp.name}</span>
+                      </td>
+                      {daysArray.map((day) => {
+                        const present = isPresent(emp.id, day);
+                        const absent = isAbsent(emp.id, day);
+                        const edited = isEdited(emp.id, day);
+                        const editors = getEditors(emp.id, day);
+                        const showEditors = (present || absent) && editors.length > 0;
+
+                        return (
+                          <td
+                            key={day}
+                            className={`day-cell ${present ? 'present' : ''} ${absent ? 'absent' : ''} ${edited ? 'edited' : ''}`}
+                            onClick={(e) => openPopup(e, emp.id, day)}
+                            title={`${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}${showEditors ? ` (edited by ${editors.join(', ')})` : ''}`}
+                          >
+                            {present && <span className="check-mark">✓</span>}
+                            {absent && <span className="absent-mark">✗</span>}
+                            {edited && <span className="edit-indicator" title="This day has been edited">✎</span>}
+                          </td>
+                        );
+                      })}
+                      <td className="total-cell">{total}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <footer className="app-footer">
+          <p>Click a blank cell to set attendance, click again to change once. Locked after two edits.</p>
+        </footer>
+      </div>
+
+      {/* ---------- HISTORY MODAL ---------- */}
+      {showHistory && (
+        <div className="history-modal-overlay" onClick={() => setShowHistory(false)}>
+          <div className="history-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Attendance Edit History</h2>
+            {history.length === 0 ? (
+              <p>No edits recorded yet.</p>
+            ) : (
+              <div className="history-table-container">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>Editor</th>
+                      <th>Employee</th>
+                      <th>Day</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{entry.editor}</td>
+                        <td>{entry.employeeName}</td>
+                        <td>{entry.day}</td>
+                        <td>{entry.date}</td>
+                        <td>{entry.status}</td>
+                        <td>{new Date(entry.editedAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <button className="close-history-btn" onClick={() => setShowHistory(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- ATTENDANCE POPUP ---------- */}
+      {popup &&
+        createPortal(
+          <div ref={popupRef} className="attendance-popup" style={{ left: popup.x, top: popup.y }}>
+            <button
+              className="popup-btn present-btn"
+              onClick={() => markAttendance(popup.employeeId, popup.day, true)}
+            >
+              ✓ Present
+            </button>
+            <button
+              className="popup-btn absent-btn"
+              onClick={() => markAttendance(popup.employeeId, popup.day, false)}
+            >
+              ✗ Absent
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -293,10 +439,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   return currentUser ? (
-    <AttendanceRegister
-      currentUser={currentUser}
-      onLogout={() => setCurrentUser(null)}
-    />
+    <AttendanceRegister currentUser={currentUser} onLogout={() => setCurrentUser(null)} />
   ) : (
     <Login onLogin={setCurrentUser} />
   );
