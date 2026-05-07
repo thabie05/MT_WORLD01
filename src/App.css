@@ -1,0 +1,227 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f4f6f9;
+  color: #333;
+}
+
+.App {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 25px;
+  background: linear-gradient(135deg, #1a237e, #0d47a1);
+  color: white;
+  padding: 25px 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* Logo styling */
+.logo {
+  max-height: 80px;
+  margin-bottom: 10px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-header h1 {
+  font-size: 2.5rem;
+  letter-spacing: 2px;
+  margin-bottom: 5px;
+}
+
+.tagline {
+  font-size: 1rem;
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.app-header h2 {
+  margin-top: 10px;
+  font-weight: 400;
+  font-size: 1.4rem;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.month-navigation {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.month-navigation button {
+  background: #1a237e;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.month-navigation button:hover {
+  background: #0d47a1;
+}
+
+.month-display {
+  font-weight: 600;
+  font-size: 1.2rem;
+  min-width: 150px;
+  text-align: center;
+}
+
+.add-employee {
+  display: flex;
+  gap: 8px;
+}
+
+.add-employee input {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.add-employee button {
+  background: #2e7d32;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.add-employee button:hover {
+  background: #1b5e20;
+}
+
+.no-employees {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  color: #666;
+}
+
+.rollcall-table-wrapper {
+  overflow-x: auto;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  padding: 10px;
+}
+
+.rollcall-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+.sticky-col {
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 2;
+  border-right: 2px solid #eee;
+}
+
+.employee-header,
+.day-header,
+.total-header {
+  background: #e3eaf3;
+  font-weight: 600;
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 0.85rem;
+  border-bottom: 2px solid #ccc;
+}
+
+.total-header {
+  background: #d4e6f1;
+}
+
+.employee-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  font-weight: 500;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.emp-name {
+  white-space: nowrap;
+}
+
+/* Remove button class removed – no longer needed */
+
+.day-cell {
+  width: 36px;
+  height: 38px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+  user-select: none;
+}
+
+.day-cell.absent {
+  background: #fff;
+  color: #ccc;
+}
+
+.day-cell.present {
+  background: #a5d6a7;
+  color: #1b5e20;
+  font-weight: bold;
+}
+
+.day-cell:hover {
+  background: #e8f5e9;
+}
+
+.day-cell.present:hover {
+  background: #81c784;
+}
+
+.total-cell {
+  text-align: center;
+  font-weight: 600;
+  background: #e8f5e9;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.app-footer {
+  text-align: center;
+  margin-top: 20px;
+  color: #555;
+  font-size: 0.9rem;
+}
