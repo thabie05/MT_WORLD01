@@ -17,6 +17,7 @@ body {
   background-position: fixed;
   background-size: cover;
   color: #333;
+  max-width: 100%;
 }
 
 /* ==========================================================================
@@ -71,8 +72,8 @@ body {
   border-radius: 10px;
   font-size: 1rem;
   outline: none;
-  height: 48px;                 /* fixed height */
-  box-sizing: border-box;       /* includes padding in height */
+  height: 48px;
+  box-sizing: border-box;
 }
 
 .login-card input:focus {
@@ -91,7 +92,7 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
-  height: 48px;                 /* same fixed height as inputs */
+  height: 48px;
   box-sizing: border-box;
 }
 
@@ -111,12 +112,12 @@ body {
 .app-header {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(rgba(26, 35, 126, 0.0), rgba(13, 71, 161, 0.5)), url('/background.jpeg');
+  background: linear-gradient(rgba(26, 35, 126, 0.7), rgba(13, 71, 161, 0.2)), url('/background.jpeg');
   background-position: center;
-  background-size: contain;           /* ✅ fills the entire header area */
+  background-size: contain;
   background-repeat: no-repeat;
   color: white;
-  padding: 172px 25px 15px;
+  padding: 172px 25px 20px;
   border-radius: 12px;
   margin-bottom: 25px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
@@ -165,6 +166,7 @@ body {
   font-size: 0.95rem;
   opacity: 0.95;
   white-space: nowrap;
+  color: #fbbf24;
 }
 
 /* Logout button */
@@ -178,7 +180,7 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
-  height: 36px;                 /* fixed height */
+  height: 36px;
   box-sizing: border-box;
   font-size: 0.9rem;
   font-family: inherit;
@@ -378,6 +380,7 @@ body {
   user-select: none;
   position: relative;
 }
+
 .day-cell.absent {
   background: #fff;
   color: #ccc;
@@ -575,14 +578,13 @@ body {
 }
 
 /* ==========================================================================
-   MOBILE RESPONSIVENESS (max‑width: 768px)
+   MOBILE RESPONSIVENESS (max-width: 768px)
    ========================================================================== */
 @media (max-width: 768px) {
   .App {
     padding: 10px;
   }
 
-  /* Header adjustments */
   .app-header {
     padding: 15px;
   }
@@ -599,7 +601,7 @@ body {
   }
 
   .header-right {
-    order: -1;          /* logo above user info on very small screens */
+    order: -1;
   }
 
   .logo {
@@ -611,7 +613,6 @@ body {
     margin-top: 10px;
   }
 
-  /* Controls – stack everything */
   .controls {
     flex-direction: column;
     align-items: stretch;
@@ -641,9 +642,8 @@ body {
     white-space: nowrap;
   }
 
-  /* Rollcall table */
   .rollcall-table {
-    min-width: 500px;        /* still scrollable but less wide */
+    min-width: 500px;
   }
 
   .day-cell {
@@ -667,7 +667,6 @@ body {
     font-size: 0.85rem;
   }
 
-  /* Attendance popup – adjust size */
   .attendance-popup {
     padding: 6px;
     gap: 4px;
@@ -678,7 +677,6 @@ body {
     font-size: 0.8rem;
   }
 
-  /* History modal */
   .history-modal {
     padding: 16px;
     max-height: 90vh;
@@ -690,7 +688,6 @@ body {
     font-size: 0.8rem;
   }
 
-  /* Login card */
   .login-card {
     padding: 20px;
     margin: 0 10px;
@@ -716,9 +713,9 @@ body {
 
 /* Weekend styling */
 .day-cell.weekend {
-  background: #e5e7eb;          /* light grey */
+  background: #e5e7eb;
   color: #6b7280;
-  cursor: not-allowed;          /* optional: indicate non‑working day */
+  cursor: not-allowed;
 }
 
 .day-cell.weekend:hover {
@@ -727,7 +724,7 @@ body {
 
 /* Holiday styling */
 .day-cell.holiday {
-  background: #fef08a;          /* soft yellow */
+  background: #fef08a;
   color: #92400e;
   font-weight: 500;
 }
@@ -736,20 +733,17 @@ body {
   background: #fde047;
 }
 
-/* If a weekend is also a holiday, prefer holiday colour */
 .day-cell.weekend.holiday {
   background: #fef08a;
 }
 
-/* If present + weekend, keep the present colour? Decide what you prefer. */
-/* Here we make weekends always grey, even if marked present – you can adjust */
 .day-cell.present.weekend {
-  background: #a5d6a7;   /* still green */
+  background: #a5d6a7;
   color: #1b5e20;
 }
 
 .day-cell.present.holiday {
-  background: #fef08a;   /* keep holiday yellow even if present */
+  background: #fef08a;
   color: #92400e;
 }
 
@@ -781,11 +775,10 @@ body {
 }
 
 /* ==========================================================================
-   EXTRA SMALL SCREENS (max‑width: 350px)
+   EXTRA SMALL SCREENS (max-width: 350px)
    ========================================================================== */
 @media (max-width: 350px) {
-
-  body{
+  body {
     background-color: #fff;
     background-position: fixed;
     background-size: cover;
@@ -795,7 +788,6 @@ body {
     padding: 4px;
   }
 
-  /* Header */
   .app-header {
     padding: 10px 8px;
     border-radius: 8px;
@@ -829,13 +821,11 @@ body {
     margin-top: 6px;
   }
 
-  /* Main card */
   .main-card {
     padding: 8px;
     border-radius: 8px;
   }
 
-  /* Controls */
   .controls {
     gap: 8px;
     padding-bottom: 12px;
@@ -884,7 +874,6 @@ body {
     width: 100%;
   }
 
-  /* Table */
   .rollcall-table {
     min-width: 380px;
   }
@@ -926,7 +915,6 @@ body {
     right: 1px;
   }
 
-  /* Popup */
   .attendance-popup {
     padding: 4px;
     gap: 3px;
@@ -937,7 +925,6 @@ body {
     font-size: 0.7rem;
   }
 
-  /* History modal */
   .history-modal {
     padding: 10px;
   }
@@ -957,7 +944,6 @@ body {
     font-size: 0.7rem;
   }
 
-  /* Login card */
   .login-card {
     padding: 15px;
     margin: 0 5px;
@@ -982,7 +968,6 @@ body {
     font-size: 0.85rem;
   }
 
-  /* Footer */
   .app-footer {
     font-size: 0.7rem;
     margin-top: 10px;
@@ -1085,9 +1070,8 @@ body.dark-mode .no-employees {
 /* ==========================================================================
    DARK MODE TOGGLE BUTTON
    ========================================================================== */
-/* Dark mode toggle button */
 .dark-mode-btn {
-  background: rgba(255, 255, 255, 0.15);    /* match logout background */
+  background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
   padding: 6px 10px;
@@ -1096,7 +1080,7 @@ body.dark-mode .no-employees {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
-  height: 36px;                 /* same height as logout */
+  height: 36px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -1215,7 +1199,7 @@ body.dark-mode .edit-name-input {
 /* Clickable employee name */
 .clickable {
   cursor: pointer;
-  color: #1a237e;
+  color: #333;
   transition: color 0.2s;
 }
 
@@ -1352,4 +1336,196 @@ body.dark-mode .context-menu-item {
 
 body.dark-mode .context-menu-item:hover {
   background: #334155;
+}
+
+/* ==========================================================================
+   PASSWORD CHANGE MODAL
+   ========================================================================== */
+.password-modal {
+  max-width: 420px;
+  padding: 28px 24px 20px;
+}
+
+.password-modal h2 {
+  text-align: center;
+  font-size: 1.3rem;
+  margin-bottom: 6px;
+  color: #0f172a;
+}
+
+body.dark-mode .password-modal h2 {
+  color: #e2e8f0;
+}
+
+.password-user {
+  text-align: center;
+  color: #64748b;
+  margin-bottom: 22px;
+  font-size: 0.85rem;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+body.dark-mode .password-user {
+  color: #94a3b8;
+  border-bottom-color: #334155;
+}
+
+.password-modal .form-group {
+  margin-bottom: 16px;
+  max-width: 400px;
+}
+
+.password-modal .form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+body.dark-mode .password-modal .form-group label {
+  color: #94a3b8;
+}
+
+.password-modal .form-group input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  outline: none;
+  font-family: inherit;
+  background: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.password-modal .form-group input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: #fff;
+}
+
+body.dark-mode .password-modal .form-group input {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+body.dark-mode .password-modal .form-group input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+  background: #0f172a;
+}
+
+.password-modal-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.cancel-btn {
+  flex: 1;
+  padding: 11px 16px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #e2e8f0;
+}
+
+.save-btn {
+  flex: 1;
+  padding: 11px 16px;
+  background: #1a237e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.save-btn:hover {
+  background: #0d47a1;
+}
+
+.save-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.success-msg {
+  color: #16a34a;
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 10px;
+  font-weight: 500;
+  background: #f0fdf4;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.error-msg {
+  color: #dc2626;
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 10px;
+  font-weight: 500;
+  background: #fef2f2;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+body.dark-mode .cancel-btn {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+body.dark-mode .cancel-btn:hover {
+  background: #475569;
+}
+
+body.dark-mode .save-btn {
+  background: #3b82f6;
+}
+
+body.dark-mode .save-btn:hover {
+  background: #2563eb;
+}
+
+body.dark-mode .success-msg {
+  background: #064e3b;
+  color: #6ee7b7;
+}
+
+body.dark-mode .error-msg {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Make username clickable for password change */
+.header-left .user-info.clickable {
+  cursor: pointer;
+  transition: opacity 0.2s;
+  color: #fcdf95;
+}
+
+.header-left .user-info.clickable:hover {
+  opacity: 0.8;
+  text-decoration: none;
 }
