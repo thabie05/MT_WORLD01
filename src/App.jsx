@@ -337,11 +337,7 @@ function AttendanceRegister({ currentUser, onLogout }) {
             <button onClick={onLogout} className="logout-btn">Logout</button>
             <button onClick={() => setDarkMode(!darkMode)} className="dark-mode-btn" title="Toggle dark mode">{darkMode ? '☀️' : '🌙'}</button>
           </div>
-          <div className="header-right">
-            <img src="/logo.png" alt="MT WORLD Logo" className="logo" />
-          </div>
         </div>
-        <h1 className="header-title">MT World Employee Attendance Register</h1>
       </header>
 
       <div className="main-card">
