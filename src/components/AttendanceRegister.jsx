@@ -38,66 +38,44 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const isAdmin = currentUser.role === 'admin';
 
-  // Seed Firestore users on first load
   useEffect(() => { seedUsersIfNeeded(db, doc, getDoc, setDoc); }, []);
 
-  // Dark mode
   useEffect(() => {
     if (darkMode) document.body.classList.add('dark-mode');
     else document.body.classList.remove('dark-mode');
     localStorage.setItem('mtworld_dark_mode', darkMode);
   }, [darkMode]);
 
-  // Migrate old boolean attendance data to new string format
-  const migrateAndSaveOldData = async (data, docRef) => {
-    const { attendance: oldAttendance } = data;
-    if (!oldAttendance) return data;
-
-    const newAttendance = {};
-    let needsMigration = false;
-
-    for (const empId in oldAttendance) {
-      newAttendance[empId] = {};
-      for (const dateKey in oldAttendance[empId]) {
-        const value = oldAttendance[empId][dateKey];
-        if (value === true) {
-          newAttendance[empId][dateKey] = 'present';
-          needsMigration = true;
-        } else if (value === false) {
-          newAttendance[empId][dateKey] = 'absent';
-          needsMigration = true;
-        } else if (typeof value === 'string') {
-          newAttendance[empId][dateKey] = value; // already migrated
-        } else {
-          newAttendance[empId][dateKey] = value;
-        }
-      }
-    }
-
-    if (needsMigration) {
-      console.log('Migrating old attendance data to new format...');
-      const updatedData = { ...data, attendance: newAttendance };
-      await setDoc(docRef, updatedData, { merge: true });
-      return updatedData;
-    }
-
-    return data;
-  };
-
-  // Fetch data from Firestore
+  // Fetch data from Firestore – NO migration, just read as-is
   useEffect(() => {
     const fetchData = async () => {
       try {
         const docRef = doc(db, 'rollcall', 'data');
         const snap = await getDoc(docRef);
         if (snap.exists()) {
-          let data = snap.data();
-
-          // Migrate old boolean data to new string format
-          data = await migrateAndSaveOldData(data, docRef);
-
+          const data = snap.data();
+          
+          // Use saved data – keep both old boolean and new string formats
+          const savedAttendance = data.attendance || {};
+          
+          // Convert old boolean format to new string format IN MEMORY only
+          const convertedAttendance = {};
+          for (const empId in savedAttendance) {
+            convertedAttendance[empId] = {};
+            for (const dateKey in savedAttendance[empId]) {
+              const value = savedAttendance[empId][dateKey];
+              if (value === true) {
+                convertedAttendance[empId][dateKey] = 'present';
+              } else if (value === false) {
+                convertedAttendance[empId][dateKey] = 'absent';
+              } else {
+                convertedAttendance[empId][dateKey] = value;
+              }
+            }
+          }
+          
           setEmployees(data.employees || []);
-          setAttendance(data.attendance || {});
+          setAttendance(convertedAttendance);  // use converted version
           setEdits(data.edits || {});
           setHistory(data.history || []);
           setNotes(data.notes || {});
@@ -116,13 +94,19 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     fetchData();
   }, []);
 
-  // Save data to Firestore
+  // Save data to Firestore – ALWAYS save in new string format
   useEffect(() => {
     if (loading) return;
     const saveData = async () => {
       try {
         const docRef = doc(db, 'rollcall', 'data');
-        await setDoc(docRef, { employees, attendance, edits, history, notes }, { merge: true });
+        await setDoc(docRef, { 
+          employees, 
+          attendance,   // already in new format
+          edits, 
+          history, 
+          notes 
+        }, { merge: true });
       } catch (err) {
         console.error('Failed to save data:', err);
       }
@@ -130,7 +114,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     saveData();
   }, [employees, attendance, edits, history, notes, loading]);
 
-  // Close popup on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (popupRef.current && popupRef.current.contains(e.target)) return;
@@ -141,7 +124,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [popup]);
 
-  // Close context menu on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (contextMenuRef.current && contextMenuRef.current.contains(e.target)) return;
@@ -151,7 +133,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [contextMenu]);
 
-  // Calendar helpers
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -165,18 +146,15 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     return getSAHolidays(currentYear).some((h) => h.date === dateKey);
   };
 
-  // Mark attendance
   const markAttendance = (employeeId, day, status, noteText = '') => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    // Track edit count
     setEdits((prev) => {
       const current = prev[`${employeeId}-${dateKey}`];
       const count = typeof current === 'number' ? current : current ? 1 : 0;
       return { ...prev, [`${employeeId}-${dateKey}`]: count + 1 };
     });
 
-    // Set attendance status
     setAttendance((prev) => {
       const updated = { ...prev };
       const empAttendance = { ...(updated[employeeId] || {}) };
@@ -186,12 +164,10 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       return updated;
     });
 
-    // Save note if provided
     if (noteText.trim()) {
       setNotes((prev) => ({ ...prev, [`${employeeId}-${dateKey}`]: noteText.trim() }));
     }
 
-    // Add to history
     const employee = employees.find((emp) => emp.id === employeeId);
     const statusLabel =
       status === 'present' ? 'Present' :
@@ -199,24 +175,19 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       status === 'late' ? 'Late' : 'Early';
     setHistory((prev) => [
       {
-        id: Date.now(),
-        employeeId,
+        id: Date.now(), employeeId,
         employeeName: employee?.name || 'Unknown',
-        day,
-        date: dateKey,
-        status: statusLabel,
+        day, date: dateKey, status: statusLabel,
         note: noteText.trim() || '',
         editor: currentUser.fullName,
         editedAt: new Date().toISOString(),
       },
       ...prev,
     ]);
-
     setPopup(null);
     setPopupNote('');
   };
 
-  // Status helpers
   const getStatus = (employeeId, day) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return attendance[employeeId]?.[dateKey] || null;
@@ -226,7 +197,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const isAbsent = (employeeId, day) => getStatus(employeeId, day) === 'absent';
   const isLate = (employeeId, day) => getStatus(employeeId, day) === 'late';
   const isEarly = (employeeId, day) => getStatus(employeeId, day) === 'early';
-
   const isEdited = (employeeId, day) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const count = edits[`${employeeId}-${dateKey}`];
@@ -238,13 +208,9 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     const entries = history
       .filter((h) => h.employeeId === employeeId && h.date === dateKey)
       .sort((a, b) => new Date(a.editedAt) - new Date(b.editedAt));
-    const uniqueEditors = [];
-    const seen = new Set();
+    const uniqueEditors = [], seen = new Set();
     for (const entry of entries) {
-      if (!seen.has(entry.editor)) {
-        seen.add(entry.editor);
-        uniqueEditors.push(entry.editor);
-      }
+      if (!seen.has(entry.editor)) { seen.add(entry.editor); uniqueEditors.push(entry.editor); }
     }
     return uniqueEditors;
   };
@@ -258,15 +224,11 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     const empAttendance = attendance[employeeId] || {};
     const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-`;
     return Object.keys(empAttendance).filter(
-      (key) =>
-        key.startsWith(monthPrefix) &&
-        (empAttendance[key] === 'present' ||
-          empAttendance[key] === 'late' ||
-          empAttendance[key] === 'early')
+      (key) => key.startsWith(monthPrefix) &&
+        (empAttendance[key] === 'present' || empAttendance[key] === 'late' || empAttendance[key] === 'early')
     ).length;
   };
 
-  // Employee management
   const addEmployee = () => {
     const name = newEmployeeName.trim();
     if (name === '') return;
@@ -277,11 +239,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const deleteEmployee = (id) => {
     if (!isAdmin) return;
     setEmployees((prev) => prev.filter((emp) => emp.id !== id));
-    setAttendance((prev) => {
-      const updated = { ...prev };
-      delete updated[id];
-      return updated;
-    });
+    setAttendance((prev) => { const updated = { ...prev }; delete updated[id]; return updated; });
   };
 
   const startEditEmployee = (emp) => {
@@ -293,35 +251,21 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
   const saveEditEmployee = () => {
     if (!isAdmin || editEmployeeName.trim() === '') return;
-    setEmployees((prev) =>
-      prev.map((emp) =>
-        emp.id === editEmployeeId ? { ...emp, name: editEmployeeName.trim() } : emp
-      )
-    );
+    setEmployees((prev) => prev.map((emp) => emp.id === editEmployeeId ? { ...emp, name: editEmployeeName.trim() } : emp));
     setEditEmployeeId(null);
     setEditEmployeeName('');
   };
 
-  // Month navigation
   const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear((prev) => prev - 1);
-    } else {
-      setCurrentMonth((prev) => prev - 1);
-    }
+    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear((prev) => prev - 1); }
+    else setCurrentMonth((prev) => prev - 1);
   };
 
   const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear((prev) => prev + 1);
-    } else {
-      setCurrentMonth((prev) => prev + 1);
-    }
+    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear((prev) => prev + 1); }
+    else setCurrentMonth((prev) => prev + 1);
   };
 
-  // Popup
   const openPopup = (e, employeeId, day) => {
     e.stopPropagation();
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -330,30 +274,19 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     if (editCount >= 2) return;
     setPopupNote(getNote(employeeId, day));
     const rect = e.currentTarget.getBoundingClientRect();
-    setPopup({
-      employeeId,
-      day,
-      x: rect.left + window.scrollX,
-      y: rect.bottom + window.scrollY,
-    });
+    setPopup({ employeeId, day, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
   };
 
-  // Employee click handler
   const handleEmployeeClick = (e, emp) => {
     e.stopPropagation();
     if (isAdmin) {
       const rect = e.currentTarget.getBoundingClientRect();
-      setContextMenu({
-        employee: emp,
-        x: rect.left + window.scrollX,
-        y: rect.bottom + window.scrollY,
-      });
+      setContextMenu({ employee: emp, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
     } else {
       setSelectedEmployee(emp);
     }
   };
 
-  // Sorting
   const getSortedEmployees = () => {
     if (sortOrder === 'none') return employees;
     return [...employees].sort((a, b) =>
@@ -363,16 +296,8 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     );
   };
 
-  // Stats
   const calculateStats = () => {
-    let presentCount = 0,
-      absentCount = 0,
-      lateCount = 0,
-      earlyCount = 0,
-      weekendCount = 0,
-      holidayCount = 0,
-      blankCount = 0;
-
+    let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
     for (const emp of employees) {
       for (const day of daysArray) {
         if (isWeekend(day)) weekendCount++;
@@ -384,7 +309,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         else blankCount++;
       }
     }
-
     return [
       { name: 'Present', value: presentCount, color: '#22c55e' },
       { name: 'Late', value: lateCount, color: '#f59e0b' },
@@ -396,25 +320,16 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     ].filter((d) => d.value > 0);
   };
 
-  // Employee report
   const getEmployeeReport = (empId) => {
     const months = [];
     for (let m = 0; m < 12; m++) {
       const daysInM = new Date(currentYear, m + 1, 0).getDate();
-      let present = 0,
-        absent = 0,
-        late = 0,
-        early = 0,
-        weekend = 0,
-        holiday = 0,
-        unmarked = 0;
-
+      let present = 0, absent = 0, late = 0, early = 0, weekend = 0, holiday = 0, unmarked = 0;
       for (let d = 1; d <= daysInM; d++) {
         const date = new Date(currentYear, m, d);
         const dateKey = `${currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const dow = date.getDay();
         const isH = getSAHolidays(currentYear).some((h) => h.date === dateKey);
-
         if (dow === 0 || dow === 6) weekend++;
         else if (isH) holiday++;
         else if (attendance[empId]?.[dateKey] === 'present') present++;
@@ -423,17 +338,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         else if (attendance[empId]?.[dateKey] === 'absent') absent++;
         else unmarked++;
       }
-
-      months.push({
-        month: monthNames[m],
-        Present: present,
-        Late: late,
-        Early: early,
-        Absent: absent,
-        Weekend: weekend,
-        Holiday: holiday,
-        Unmarked: unmarked,
-      });
+      months.push({ month: monthNames[m], Present: present, Late: late, Early: early, Absent: absent, Weekend: weekend, Holiday: holiday, Unmarked: unmarked });
     }
     return months;
   };
@@ -442,32 +347,19 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
   return (
     <div className={`App ${darkMode ? 'dark' : ''}`}>
-      {/* HEADER */}
       <header className="app-header">
         <div className="header-top">
           <div className="header-left">
-            <span
-              className="user-info clickable"
-              onClick={() => setShowPasswordModal(true)}
-              title="Click to change password"
-            >
+            <span className="user-info clickable" onClick={() => setShowPasswordModal(true)} title="Click to change password">
               Logged in as: {currentUser.fullName} {isAdmin && '(Admin)'}
             </span>
             <button onClick={onLogout} className="logout-btn">Logout</button>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="dark-mode-btn"
-              title="Toggle dark mode"
-            >
-              {darkMode ? '☀️' : '🌙'}
-            </button>
+            <button onClick={() => setDarkMode(!darkMode)} className="dark-mode-btn" title="Toggle dark mode">{darkMode ? '☀️' : '🌙'}</button>
           </div>
         </div>
       </header>
 
-      {/* MAIN CARD */}
       <div className="main-card">
-        {/* CONTROLS */}
         <div className="controls">
           <div className="month-navigation">
             <button onClick={handlePrevMonth} className="nav-btn"><span>&lsaquo;</span></button>
@@ -476,36 +368,19 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           </div>
           <div className="controls-right">
             <button onClick={() => setShowHistory(true)} className="history-btn">View History</button>
-            <button onClick={() => setShowStats(!showStats)} className="stats-btn">
-              {showStats ? 'Hide Stats' : '📊 Stats'}
-            </button>
-            <button
-              onClick={() =>
-                setSortOrder((prev) =>
-                  prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none'
-                )
-              }
-              className="sort-btn"
-            >
+            <button onClick={() => setShowStats(!showStats)} className="stats-btn">{showStats ? 'Hide Stats' : '📊 Stats'}</button>
+            <button onClick={() => setSortOrder((prev) => prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none')} className="sort-btn">
               {sortOrder === 'none' ? '⇅ Sort' : sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}
             </button>
             <div className="add-employee">
-              <input
-                type="text"
-                placeholder="Employee name"
-                value={newEmployeeName}
-                onChange={(e) => setNewEmployeeName(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
-              />
+              <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => setNewEmployeeName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} />
               <button onClick={addEmployee} className="add-btn">+ Add</button>
             </div>
           </div>
         </div>
 
-        {/* STATS */}
         {showStats && <StatsChart stats={calculateStats()} />}
 
-        {/* TABLE */}
         {employees.length === 0 ? (
           <div className="no-employees"><p>No employees added yet.</p></div>
         ) : (
@@ -515,9 +390,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 <tr>
                   <th className="sticky-col number-header">#</th>
                   <th className="sticky-col employee-header">Employee</th>
-                  {daysArray.map((day) => (
-                    <th key={day} className="day-header">{day}</th>
-                  ))}
+                  {daysArray.map((day) => (<th key={day} className="day-header">{day}</th>))}
                   <th className="total-header">Total</th>
                   {isAdmin && <th className="action-header">Actions</th>}
                 </tr>
@@ -530,35 +403,14 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                       <td className="sticky-col number-cell">{index + 1}</td>
                       <td className="sticky-col employee-name">
                         {editEmployeeId === emp.id ? (
-                          <input
-                            type="text"
-                            value={editEmployeeName}
-                            onChange={(e) => setEditEmployeeName(e.target.value)}
-                            onBlur={saveEditEmployee}
-                            onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()}
-                            className="edit-name-input"
-                            autoFocus
-                          />
+                          <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="edit-name-input" autoFocus />
                         ) : (
-                          <span
-                            className="emp-name clickable"
-                            onClick={(e) => handleEmployeeClick(e, emp)}
-                            title={isAdmin ? 'Click for options' : 'Click to view report'}
-                          >
-                            {emp.name}
-                          </span>
+                          <span className="emp-name clickable" onClick={(e) => handleEmployeeClick(e, emp)} title={isAdmin ? 'Click for options' : 'Click to view report'}>{emp.name}</span>
                         )}
                       </td>
                       {daysArray.map((day) => {
-                        const present = isPresent(emp.id, day);
-                        const absent = isAbsent(emp.id, day);
-                        const late = isLate(emp.id, day);
-                        const early = isEarly(emp.id, day);
-                        const edited = isEdited(emp.id, day);
-                        const weekend = isWeekend(day);
-                        const holiday = isHoliday(day);
-                        const editors = getEditors(emp.id, day);
-                        const note = getNote(emp.id, day);
+                        const present = isPresent(emp.id, day), absent = isAbsent(emp.id, day), late = isLate(emp.id, day), early = isEarly(emp.id, day), edited = isEdited(emp.id, day), weekend = isWeekend(day), holiday = isHoliday(day);
+                        const editors = getEditors(emp.id, day), note = getNote(emp.id, day);
                         const hasMark = present || absent || late || early;
                         const showEditors = hasMark && editors.length > 0;
 
@@ -573,24 +425,14 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
                         let tooltip = `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}`;
                         if (weekend) tooltip += ' (Weekend)';
-                        if (holiday) {
-                          const holidayName = getSAHolidays(currentYear).find(
-                            (h) => h.date === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                          )?.name;
-                          tooltip += ` (${holidayName})`;
-                        }
+                        if (holiday) tooltip += ` (${getSAHolidays(currentYear).find(h => h.date === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)?.name})`;
                         if (late) tooltip += ' (Late)';
                         if (early) tooltip += ' (Early Leave)';
                         if (note) tooltip += ` – 📝 ${note}`;
                         if (showEditors) tooltip += ` (edited by ${editors.join(', ')})`;
 
                         return (
-                          <td
-                            key={day}
-                            className={cellClass}
-                            onClick={(e) => openPopup(e, emp.id, day)}
-                            title={tooltip}
-                          >
+                          <td key={day} className={cellClass} onClick={(e) => openPopup(e, emp.id, day)} title={tooltip}>
                             {present && <span className="check-mark">✓</span>}
                             {absent && <span className="absent-mark">✗</span>}
                             {late && <span className="late-mark">⏰</span>}
@@ -601,17 +443,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                         );
                       })}
                       <td className="total-cell">{total}</td>
-                      {isAdmin && (
-                        <td className="action-cell">
-                          <button
-                            onClick={() => deleteEmployee(emp.id)}
-                            className="delete-btn"
-                            title="Delete employee"
-                          >
-                            🗑️
-                          </button>
-                        </td>
-                      )}
+                      {isAdmin && <td className="action-cell"><button onClick={() => deleteEmployee(emp.id)} className="delete-btn" title="Delete employee">🗑️</button></td>}
                     </tr>
                   );
                 })}
@@ -620,44 +452,23 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           </div>
         )}
 
-        {/* FOOTER */}
         <footer className="app-footer">
           <p>Click a blank cell to mark attendance. Options: Present, Absent, Late, or Early Leave (with optional note). Locked after two edits.</p>
           {isAdmin && <p className="admin-hint">Admin: Click employee name for options. Use 🗑️ to delete.</p>}
         </footer>
       </div>
 
-      {/* MODALS & POPUPS */}
       {showHistory && <HistoryModal history={history} onClose={() => setShowHistory(false)} />}
-      {showPasswordModal && (
-        <PasswordChangeModal currentUser={currentUser} onClose={() => setShowPasswordModal(false)} onPasswordChanged={onPasswordChanged} />
-      )}
+      {showPasswordModal && <PasswordChangeModal currentUser={currentUser} onClose={() => setShowPasswordModal(false)} onPasswordChanged={onPasswordChanged} />}
       {contextMenu && isAdmin && (
-        <ContextMenu
-          contextMenu={contextMenu}
-          contextMenuRef={contextMenuRef}
-          onViewReport={() => {
-            setSelectedEmployee(contextMenu.employee);
-            setContextMenu(null);
-          }}
-          onRename={() => startEditEmployee(contextMenu.employee)}
-        />
+        <ContextMenu contextMenu={contextMenu} contextMenuRef={contextMenuRef}
+          onViewReport={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }}
+          onRename={() => startEditEmployee(contextMenu.employee)} />
       )}
       {selectedEmployee && (
-        <EmployeeReportModal
-          employee={selectedEmployee}
-          report={getEmployeeReport(selectedEmployee.id)}
-          year={currentYear}
-          onClose={() => setSelectedEmployee(null)}
-        />
+        <EmployeeReportModal employee={selectedEmployee} report={getEmployeeReport(selectedEmployee.id)} year={currentYear} onClose={() => setSelectedEmployee(null)} />
       )}
-      <AttendancePopup
-        popup={popup}
-        popupNote={popupNote}
-        setPopupNote={setPopupNote}
-        popupRef={popupRef}
-        onMark={markAttendance}
-      />
+      <AttendancePopup popup={popup} popupNote={popupNote} setPopupNote={setPopupNote} popupRef={popupRef} onMark={markAttendance} />
     </div>
   );
 }
