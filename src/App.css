@@ -1619,3 +1619,70 @@ body.dark-mode .popup-note-input {
 
 /* Late stat in reports */
 .report-stat.late { border-left: 4px solid #f59e0b; }
+
+/* Early Leave marker */
+.early-mark {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.day-cell.early {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.day-cell.early:hover {
+  background: #ddd6fe;
+}
+
+body.dark-mode .day-cell.early {
+  background: #4c1d95;
+  color: #ddd6fe;
+}
+
+/* Early button */
+.early-btn {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.early-btn:hover {
+  background: #ddd6fe;
+}
+
+/* Early stat in reports */
+.report-stat.early { border-left: 4px solid #8b5cf6; }
+
+/* Number column */
+.number-header {
+  background: #e3eaf3;
+  font-weight: 600;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 0.8rem;
+  border-bottom: 2px solid #ccc;
+  width: 30px;
+  min-width: 30px;
+  z-index: 3;
+}
+
+.number-cell {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  background: #f8fafc;
+  width: 30px;
+  min-width: 30px;
+  z-index: 3;
+}
+
+body.dark-mode .number-header {
+  background: #334155;
+  color: #e2e8f0;
+  border-bottom-color: #475569;
+}
+
+body.dark-mode .number-cell {
+  background: #1e293b;
+  color: #94a3b8;
+}
