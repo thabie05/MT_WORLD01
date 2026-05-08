@@ -1529,3 +1529,93 @@ body.dark-mode .error-msg {
   opacity: 0.8;
   text-decoration: none;
 }
+
+/* Late marker */
+.late-mark {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.day-cell.late {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.day-cell.late:hover {
+  background: #fde68a;
+}
+
+body.dark-mode .day-cell.late {
+  background: #78350f;
+  color: #fde68a;
+}
+
+/* Note dot indicator */
+.note-dot {
+  position: absolute;
+  bottom: 1px;
+  left: 1px;
+  font-size: 0.5rem;
+  line-height: 1;
+}
+
+/* Popup note input */
+.popup-note {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #e2e8f0;
+}
+
+body.dark-mode .popup-note {
+  border-top-color: #334155;
+}
+
+.popup-note-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  outline: none;
+  font-family: inherit;
+  background: #f8fafc;
+  max-width: 360px;
+  color: #000;
+}
+
+.popup-note-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+body.dark-mode .popup-note-input {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+  max-width: 360px;
+}
+
+/* Updated popup layout */
+.popup-options {
+  display: flex;
+  gap: 4px;
+}
+
+.attendance-popup {
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Late button */
+.late-btn {
+  background: #fef3c7;
+  color: #92400e;
+}
+.late-btn:hover {
+  background: #fde68a;
+}
+
+/* Late stat in reports */
+.report-stat.late { border-left: 4px solid #f59e0b; }
