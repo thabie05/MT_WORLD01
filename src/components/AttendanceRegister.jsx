@@ -17,7 +17,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState({});
   const [loading, setLoading] = useState(true);
-  const [sortOrder, setSortOrder] = useState('none');
+  const [sortOrder, setSortOrder] = useState('asc');  // Always sorted A-Z by default
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('mtworld_dark_mode') === 'true');
   const [showStats, setShowStats] = useState(false);
   const [editEmployeeId, setEditEmployeeId] = useState(null);
@@ -28,6 +28,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [popup, setPopup] = useState(null);
   const [popupNote, setPopupNote] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [addError, setAddError] = useState('');
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -46,7 +47,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     localStorage.setItem('mtworld_dark_mode', darkMode);
   }, [darkMode]);
 
-  // Fetch data from Firestore – NO migration, just read as-is
+  // Fetch data from Firestore
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -54,11 +55,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
-          
-          // Use saved data – keep both old boolean and new string formats
           const savedAttendance = data.attendance || {};
-          
-          // Convert old boolean format to new string format IN MEMORY only
           const convertedAttendance = {};
           for (const empId in savedAttendance) {
             convertedAttendance[empId] = {};
@@ -73,9 +70,8 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
               }
             }
           }
-          
           setEmployees(data.employees || []);
-          setAttendance(convertedAttendance);  // use converted version
+          setAttendance(convertedAttendance);
           setEdits(data.edits || {});
           setHistory(data.history || []);
           setNotes(data.notes || {});
@@ -94,19 +90,13 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     fetchData();
   }, []);
 
-  // Save data to Firestore – ALWAYS save in new string format
+  // Save data to Firestore
   useEffect(() => {
     if (loading) return;
     const saveData = async () => {
       try {
         const docRef = doc(db, 'rollcall', 'data');
-        await setDoc(docRef, { 
-          employees, 
-          attendance,   // already in new format
-          edits, 
-          history, 
-          notes 
-        }, { merge: true });
+        await setDoc(docRef, { employees, attendance, edits, history, notes }, { merge: true });
       } catch (err) {
         console.error('Failed to save data:', err);
       }
@@ -114,6 +104,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     saveData();
   }, [employees, attendance, edits, history, notes, loading]);
 
+  // Close popup on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (popupRef.current && popupRef.current.contains(e.target)) return;
@@ -124,6 +115,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [popup]);
 
+  // Close context menu on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (contextMenuRef.current && contextMenuRef.current.contains(e.target)) return;
@@ -229,9 +221,22 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     ).length;
   };
 
+  // Add employee with duplicate check
   const addEmployee = () => {
     const name = newEmployeeName.trim();
     if (name === '') return;
+
+    const isDuplicate = employees.some(
+      (emp) => emp.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      setAddError('This employee already exists!');
+      setTimeout(() => setAddError(''), 3000);
+      return;
+    }
+
+    setAddError('');
     setEmployees((prev) => [...prev, { id: Date.now().toString(), name }]);
     setNewEmployeeName('');
   };
@@ -249,9 +254,22 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     setEditEmployeeName(emp.name);
   };
 
+  // Save edit with duplicate check
   const saveEditEmployee = () => {
     if (!isAdmin || editEmployeeName.trim() === '') return;
-    setEmployees((prev) => prev.map((emp) => emp.id === editEmployeeId ? { ...emp, name: editEmployeeName.trim() } : emp));
+
+    const newName = editEmployeeName.trim();
+
+    const isDuplicate = employees.some(
+      (emp) => emp.id !== editEmployeeId && emp.name.toLowerCase() === newName.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      alert('An employee with this name already exists!');
+      return;
+    }
+
+    setEmployees((prev) => prev.map((emp) => emp.id === editEmployeeId ? { ...emp, name: newName } : emp));
     setEditEmployeeId(null);
     setEditEmployeeName('');
   };
@@ -287,14 +305,16 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     }
   };
 
+  // Always sorted (A-Z or Z-A)
   const getSortedEmployees = () => {
-    if (sortOrder === 'none') return employees;
     return [...employees].sort((a, b) =>
       sortOrder === 'asc'
         ? a.name.toLowerCase().localeCompare(b.name.toLowerCase())
         : b.name.toLowerCase().localeCompare(a.name.toLowerCase())
     );
   };
+
+  const toggleSort = () => setSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc');
 
   const calculateStats = () => {
     let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
@@ -369,15 +389,22 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           <div className="controls-right">
             <button onClick={() => setShowHistory(true)} className="history-btn">View History</button>
             <button onClick={() => setShowStats(!showStats)} className="stats-btn">{showStats ? 'Hide Stats' : '📊 Stats'}</button>
-            <button onClick={() => setSortOrder((prev) => prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none')} className="sort-btn">
-              {sortOrder === 'none' ? '⇅ Sort' : sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}
+            <button onClick={toggleSort} className="sort-btn">
+              {sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}
             </button>
             <div className="add-employee">
-              <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => setNewEmployeeName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} />
+              <input
+                type="text"
+                placeholder="Employee name"
+                value={newEmployeeName}
+                onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }}
+                onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
+              />
               <button onClick={addEmployee} className="add-btn">+ Add</button>
             </div>
           </div>
         </div>
+        {addError && <p className="add-error-msg">{addError}</p>}
 
         {showStats && <StatsChart stats={calculateStats()} />}
 

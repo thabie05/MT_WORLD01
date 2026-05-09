@@ -1686,3 +1686,16 @@ body.dark-mode .number-cell {
   background: #1e293b;
   color: #94a3b8;
 }
+
+/* Add employee error message */
+.add-error-msg {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-weight: 500;
+  width: 100%;
+}
+
+body.dark-mode .add-error-msg {
+  color: #fca5a5;
+}
