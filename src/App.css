@@ -1699,3 +1699,26 @@ body.dark-mode .number-cell {
 body.dark-mode .add-error-msg {
   color: #fca5a5;
 }
+
+/* Email button */
+.email-btn {
+  background: #059669;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.email-btn:hover {
+  background: #047857;
+}
+
+.form-group input {
+  margin-top: 4px;
+  max-width: 870px;
+  text-align: center;
+}

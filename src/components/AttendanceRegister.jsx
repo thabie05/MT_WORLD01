@@ -9,6 +9,7 @@ import HistoryModal from './HistoryModal';
 import EmployeeReportModal from './EmployeeReportModal';
 import ContextMenu from './ContextMenu';
 import AttendancePopup from './AttendancePopup';
+import EmailReportModal from './EmailReportModal';
 
 function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [employees, setEmployees] = useState([]);
@@ -29,6 +30,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [popupNote, setPopupNote] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [addError, setAddError] = useState('');
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -401,6 +403,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
               />
               <button onClick={addEmployee} className="add-btn">+ Add</button>
+              <button onClick={() => setShowEmailModal(true)} className="email-btn">📧 Email</button>
             </div>
           </div>
         </div>
@@ -496,6 +499,15 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         <EmployeeReportModal employee={selectedEmployee} report={getEmployeeReport(selectedEmployee.id)} year={currentYear} onClose={() => setSelectedEmployee(null)} />
       )}
       <AttendancePopup popup={popup} popupNote={popupNote} setPopupNote={setPopupNote} popupRef={popupRef} onMark={markAttendance} />
+      {showEmailModal && (
+  <EmailReportModal
+    employees={employees}
+    attendance={attendance}
+    currentYear={currentYear}
+    currentMonth={currentMonth}
+    onClose={() => setShowEmailModal(false)}
+  />
+)}
     </div>
   );
 }
