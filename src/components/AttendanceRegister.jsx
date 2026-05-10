@@ -330,7 +330,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       <thead>
         <tr>
           <th className="sticky left-0 bg-[#f1f5f9] z-[3] w-[30px] min-w-[30px] font-semibold py-2.5 px-1 text-center text-xs border-b border-r border-[#e2e8f0] text-slate-700">#</th>
-          <th className="sticky left-[30px] bg-[#f1f5f9] z-[2] font-semibold py-2.5 px-3 text-left text-xs border-b border-r border-[#e2e8f0] text-slate-700">Employee</th>
+          <th className="sticky left-[30px] bg-[#f1f5f9] z-[2] font-semibold py-2.5 px-3 text-left text-xs border-b border-r-2 border-[#cbd5e1] text-slate-700">Name of Employees</th>
           {daysArray.map((day) => (
             <th key={day} className="bg-[#f1f5f9] font-semibold py-2.5 px-0.5 text-center text-[0.75rem] border-b border-r border-[#e2e8f0] text-slate-600">{day}</th>
           ))}
@@ -343,7 +343,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           return (
             <tr key={emp.id}>
               <td className="sticky left-0 bg-[#f8fafc] z-[3] text-center text-xs text-slate-600 font-medium py-2 px-1 w-[30px] border-b border-r border-[#e2e8f0]">{index + 1}</td>
-              <td className="sticky left-[30px] bg-white z-[2] py-2 px-3 font-medium border-b border-r border-[#e2e8f0] text-slate-800 text-sm">
+              <td className="sticky left-[30px] bg-white z-[2] py-2 px-3 font-medium border-b border-r-2 border-[#cbd5e1] text-slate-800 text-sm">
                 {editEmployeeId === emp.id ? (
                   <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="w-full py-1 px-2 border-2 border-blue-400 rounded text-sm outline-none text-slate-800" autoFocus />
                 ) : (
