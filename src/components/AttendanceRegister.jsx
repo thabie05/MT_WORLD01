@@ -18,8 +18,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState({});
   const [loading, setLoading] = useState(true);
-  const [sortOrder, setSortOrder] = useState('asc');  // Always sorted A-Z by default
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('mtworld_dark_mode') === 'true');
+  const [sortOrder, setSortOrder] = useState('asc');
   const [showStats, setShowStats] = useState(false);
   const [editEmployeeId, setEditEmployeeId] = useState(null);
   const [editEmployeeName, setEditEmployeeName] = useState('');
@@ -43,12 +42,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
   useEffect(() => { seedUsersIfNeeded(db, doc, getDoc, setDoc); }, []);
 
-  useEffect(() => {
-    if (darkMode) document.body.classList.add('dark-mode');
-    else document.body.classList.remove('dark-mode');
-    localStorage.setItem('mtworld_dark_mode', darkMode);
-  }, [darkMode]);
-
   // Fetch data from Firestore
   useEffect(() => {
     const fetchData = async () => {
@@ -63,13 +56,9 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
             convertedAttendance[empId] = {};
             for (const dateKey in savedAttendance[empId]) {
               const value = savedAttendance[empId][dateKey];
-              if (value === true) {
-                convertedAttendance[empId][dateKey] = 'present';
-              } else if (value === false) {
-                convertedAttendance[empId][dateKey] = 'absent';
-              } else {
-                convertedAttendance[empId][dateKey] = value;
-              }
+              if (value === true) convertedAttendance[empId][dateKey] = 'present';
+              else if (value === false) convertedAttendance[empId][dateKey] = 'absent';
+              else convertedAttendance[empId][dateKey] = value;
             }
           }
           setEmployees(data.employees || []);
@@ -78,16 +67,10 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           setHistory(data.history || []);
           setNotes(data.notes || {});
         } else {
-          setEmployees([
-            { id: '1', name: 'John Doe' },
-            { id: '2', name: 'Jane Smith' },
-          ]);
+          setEmployees([{ id: '1', name: 'John Doe' }, { id: '2', name: 'Jane Smith' }]);
         }
-      } catch (err) {
-        console.error('Failed to load data:', err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error('Failed to load data:', err); }
+      finally { setLoading(false); }
     };
     fetchData();
   }, []);
@@ -99,9 +82,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       try {
         const docRef = doc(db, 'rollcall', 'data');
         await setDoc(docRef, { employees, attendance, edits, history, notes }, { merge: true });
-      } catch (err) {
-        console.error('Failed to save data:', err);
-      }
+      } catch (err) { console.error('Failed to save data:', err); }
     };
     saveData();
   }, [employees, attendance, edits, history, notes, loading]);
@@ -142,42 +123,12 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
   const markAttendance = (employeeId, day, status, noteText = '') => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-    setEdits((prev) => {
-      const current = prev[`${employeeId}-${dateKey}`];
-      const count = typeof current === 'number' ? current : current ? 1 : 0;
-      return { ...prev, [`${employeeId}-${dateKey}`]: count + 1 };
-    });
-
-    setAttendance((prev) => {
-      const updated = { ...prev };
-      const empAttendance = { ...(updated[employeeId] || {}) };
-      empAttendance[dateKey] = status;
-      if (Object.keys(empAttendance).length === 0) delete updated[employeeId];
-      else updated[employeeId] = empAttendance;
-      return updated;
-    });
-
-    if (noteText.trim()) {
-      setNotes((prev) => ({ ...prev, [`${employeeId}-${dateKey}`]: noteText.trim() }));
-    }
-
+    setEdits((prev) => { const current = prev[`${employeeId}-${dateKey}`]; const count = typeof current === 'number' ? current : current ? 1 : 0; return { ...prev, [`${employeeId}-${dateKey}`]: count + 1 }; });
+    setAttendance((prev) => { const updated = { ...prev }; const empAttendance = { ...(updated[employeeId] || {}) }; empAttendance[dateKey] = status; if (Object.keys(empAttendance).length === 0) delete updated[employeeId]; else updated[employeeId] = empAttendance; return updated; });
+    if (noteText.trim()) setNotes((prev) => ({ ...prev, [`${employeeId}-${dateKey}`]: noteText.trim() }));
     const employee = employees.find((emp) => emp.id === employeeId);
-    const statusLabel =
-      status === 'present' ? 'Present' :
-      status === 'absent' ? 'Absent' :
-      status === 'late' ? 'Late' : 'Early';
-    setHistory((prev) => [
-      {
-        id: Date.now(), employeeId,
-        employeeName: employee?.name || 'Unknown',
-        day, date: dateKey, status: statusLabel,
-        note: noteText.trim() || '',
-        editor: currentUser.fullName,
-        editedAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
+    const statusLabel = status === 'present' ? 'Present' : status === 'absent' ? 'Absent' : status === 'late' ? 'Late' : 'Early';
+    setHistory((prev) => [{ id: Date.now(), employeeId, employeeName: employee?.name || 'Unknown', day, date: dateKey, status: statusLabel, note: noteText.trim() || '', editor: currentUser.fullName, editedAt: new Date().toISOString() }, ...prev]);
     setPopup(null);
     setPopupNote('');
   };
@@ -199,13 +150,9 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
   const getEditors = (employeeId, day) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const entries = history
-      .filter((h) => h.employeeId === employeeId && h.date === dateKey)
-      .sort((a, b) => new Date(a.editedAt) - new Date(b.editedAt));
+    const entries = history.filter((h) => h.employeeId === employeeId && h.date === dateKey).sort((a, b) => new Date(a.editedAt) - new Date(b.editedAt));
     const uniqueEditors = [], seen = new Set();
-    for (const entry of entries) {
-      if (!seen.has(entry.editor)) { seen.add(entry.editor); uniqueEditors.push(entry.editor); }
-    }
+    for (const entry of entries) { if (!seen.has(entry.editor)) { seen.add(entry.editor); uniqueEditors.push(entry.editor); } }
     return uniqueEditors;
   };
 
@@ -217,27 +164,14 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const getTotalWorkedDays = (employeeId) => {
     const empAttendance = attendance[employeeId] || {};
     const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-`;
-    return Object.keys(empAttendance).filter(
-      (key) => key.startsWith(monthPrefix) &&
-        (empAttendance[key] === 'present' || empAttendance[key] === 'late' || empAttendance[key] === 'early')
-    ).length;
+    return Object.keys(empAttendance).filter((key) => key.startsWith(monthPrefix) && (empAttendance[key] === 'present' || empAttendance[key] === 'late' || empAttendance[key] === 'early')).length;
   };
 
-  // Add employee with duplicate check
   const addEmployee = () => {
     const name = newEmployeeName.trim();
     if (name === '') return;
-
-    const isDuplicate = employees.some(
-      (emp) => emp.name.toLowerCase() === name.toLowerCase()
-    );
-
-    if (isDuplicate) {
-      setAddError('This employee already exists!');
-      setTimeout(() => setAddError(''), 3000);
-      return;
-    }
-
+    const isDuplicate = employees.some((emp) => emp.name.toLowerCase() === name.toLowerCase());
+    if (isDuplicate) { setAddError('This employee already exists!'); setTimeout(() => setAddError(''), 3000); return; }
     setAddError('');
     setEmployees((prev) => [...prev, { id: Date.now().toString(), name }]);
     setNewEmployeeName('');
@@ -256,35 +190,18 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     setEditEmployeeName(emp.name);
   };
 
-  // Save edit with duplicate check
   const saveEditEmployee = () => {
     if (!isAdmin || editEmployeeName.trim() === '') return;
-
     const newName = editEmployeeName.trim();
-
-    const isDuplicate = employees.some(
-      (emp) => emp.id !== editEmployeeId && emp.name.toLowerCase() === newName.toLowerCase()
-    );
-
-    if (isDuplicate) {
-      alert('An employee with this name already exists!');
-      return;
-    }
-
+    const isDuplicate = employees.some((emp) => emp.id !== editEmployeeId && emp.name.toLowerCase() === newName.toLowerCase());
+    if (isDuplicate) { alert('An employee with this name already exists!'); return; }
     setEmployees((prev) => prev.map((emp) => emp.id === editEmployeeId ? { ...emp, name: newName } : emp));
     setEditEmployeeId(null);
     setEditEmployeeName('');
   };
 
-  const handlePrevMonth = () => {
-    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear((prev) => prev - 1); }
-    else setCurrentMonth((prev) => prev - 1);
-  };
-
-  const handleNextMonth = () => {
-    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear((prev) => prev + 1); }
-    else setCurrentMonth((prev) => prev + 1);
-  };
+  const handlePrevMonth = () => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear((prev) => prev - 1); } else setCurrentMonth((prev) => prev - 1); };
+  const handleNextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear((prev) => prev + 1); } else setCurrentMonth((prev) => prev + 1); };
 
   const openPopup = (e, employeeId, day) => {
     e.stopPropagation();
@@ -307,15 +224,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     }
   };
 
-  // Always sorted (A-Z or Z-A)
-  const getSortedEmployees = () => {
-    return [...employees].sort((a, b) =>
-      sortOrder === 'asc'
-        ? a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-        : b.name.toLowerCase().localeCompare(a.name.toLowerCase())
-    );
-  };
-
+  const getSortedEmployees = () => [...employees].sort((a, b) => sortOrder === 'asc' ? a.name.toLowerCase().localeCompare(b.name.toLowerCase()) : b.name.toLowerCase().localeCompare(a.name.toLowerCase()));
   const toggleSort = () => setSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc');
 
   const calculateStats = () => {
@@ -365,149 +274,162 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     return months;
   };
 
-  if (loading) return <div className="loading">Loading data…</div>;
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-screen text-2xl text-indigo-900">
+      Loading data…
+    </div>
+  );
 
   return (
-    <div className={`App ${darkMode ? 'dark' : ''}`}>
-      <header className="app-header">
-        <div className="header-top">
-          <div className="header-left">
-            <span className="user-info clickable" onClick={() => setShowPasswordModal(true)} title="Click to change password">
-              Logged in as: {currentUser.fullName} {isAdmin && '(Admin)'}
-            </span>
-            <button onClick={onLogout} className="logout-btn">Logout</button>
-            <button onClick={() => setDarkMode(!darkMode)} className="dark-mode-btn" title="Toggle dark mode">{darkMode ? '☀️' : '🌙'}</button>
-          </div>
-        </div>
-      </header>
+    <div className="max-w-[1920px] mx-auto p-5 max-sm:p-2.5">
+      {/* ========== HEADER ========== */}
+<header className="flex flex-col bg-[linear-gradient(rgba(26,35,126,0.7),rgba(13,71,161,0.2)),url('/background1.png')] bg-left bg-no-repeat bg-contain text-white pt-[150px] pb-[10px] px-6 rounded-xl mb-6 shadow-lg max-sm:py-4 max-sm:px-2">
+  <div className="flex justify-between items-start w-full max-sm:flex-col max-sm:items-center max-sm:gap-2.5">
+    <div className="flex items-center gap-3 flex-wrap max-sm:w-full max-sm:justify-between">
+      <span className="text-[0.95rem] text-yellow-400 cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap" onClick={() => setShowPasswordModal(true)} title="Click to change password">
+        Logged in as: {currentUser.fullName} {isAdmin && '(Admin)'}
+      </span>
+      <button onClick={onLogout} className="bg-white/15 border border-white/30 text-white py-1.5 px-3.5 rounded-lg font-medium text-[0.9rem] transition hover:bg-white/25 h-9">
+        Logout
+      </button>
+    </div>
+  </div>
+</header>
 
-      <div className="main-card">
-        <div className="controls">
-          <div className="month-navigation">
-            <button onClick={handlePrevMonth} className="nav-btn"><span>&lsaquo;</span></button>
-            <span className="month-display">{monthNames[currentMonth]} {currentYear}</span>
-            <button onClick={handleNextMonth} className="nav-btn"><span>&rsaquo;</span></button>
+      {/* ========== MAIN CARD ========== */}
+      <div className="bg-white rounded-xl p-5 shadow-md">
+        {/* ========== CONTROLS ========== */}
+        <div className="flex justify-between items-center flex-wrap gap-4 mb-5 pb-5 border-b border-slate-200">
+          <div className="flex items-center gap-4">
+            <button onClick={handlePrevMonth} className="bg-slate-800 text-white rounded-full w-9 h-9 text-lg flex items-center justify-center hover:bg-slate-700 transition">&lsaquo;</button>
+            <span className="font-semibold text-lg text-slate-800 min-w-[150px] text-center">{monthNames[currentMonth]} {currentYear}</span>
+            <button onClick={handleNextMonth} className="bg-slate-800 text-white rounded-full w-9 h-9 text-lg flex items-center justify-center hover:bg-slate-700 transition">&rsaquo;</button>
           </div>
-          <div className="controls-right">
-            <button onClick={() => setShowHistory(true)} className="history-btn">View History</button>
-            <button onClick={() => setShowStats(!showStats)} className="stats-btn">{showStats ? 'Hide Stats' : '📊 Stats'}</button>
-            <button onClick={toggleSort} className="sort-btn">
-              {sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}
-            </button>
-            <div className="add-employee">
-              <input
-                type="text"
-                placeholder="Employee name"
-                value={newEmployeeName}
-                onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }}
-                onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
-              />
-              <button onClick={addEmployee} className="add-btn">+ Add</button>
-              <button onClick={() => setShowEmailModal(true)} className="email-btn">📧 Email</button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button onClick={() => setShowHistory(true)} className="bg-slate-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-slate-600 transition">View History</button>
+            <button onClick={() => setShowStats(!showStats)} className="bg-purple-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-purple-600 transition">{showStats ? 'Hide Stats' : '📊 Stats'}</button>
+            <button onClick={() => setShowEmailModal(true)} className="bg-emerald-600 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-emerald-700 transition">📧 Email</button>
+            <button onClick={toggleSort} className="bg-slate-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-slate-600 transition min-w-[70px]">{sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}</button>
+            <div className="flex gap-2">
+              <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} className="py-2 px-3 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition" />
+              <button onClick={addEmployee} className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium text-sm hover:bg-green-700 transition">+ Add</button>
             </div>
           </div>
         </div>
-        {addError && <p className="add-error-msg">{addError}</p>}
+        {addError && <p className="text-red-600 text-xs mb-3 font-medium">{addError}</p>}
 
+        {/* ========== STATS ========== */}
         {showStats && <StatsChart stats={calculateStats()} />}
 
-        {employees.length === 0 ? (
-          <div className="no-employees"><p>No employees added yet.</p></div>
-        ) : (
-          <div className="rollcall-table-wrapper">
-            <table className="rollcall-table">
-              <thead>
-                <tr>
-                  <th className="sticky-col number-header">#</th>
-                  <th className="sticky-col employee-header">Employee</th>
-                  {daysArray.map((day) => (<th key={day} className="day-header">{day}</th>))}
-                  <th className="total-header">Total</th>
-                  {isAdmin && <th className="action-header">Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {getSortedEmployees().map((emp, index) => {
-                  const total = getTotalWorkedDays(emp.id);
-                  return (
-                    <tr key={emp.id}>
-                      <td className="sticky-col number-cell">{index + 1}</td>
-                      <td className="sticky-col employee-name">
-                        {editEmployeeId === emp.id ? (
-                          <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="edit-name-input" autoFocus />
-                        ) : (
-                          <span className="emp-name clickable" onClick={(e) => handleEmployeeClick(e, emp)} title={isAdmin ? 'Click for options' : 'Click to view report'}>{emp.name}</span>
-                        )}
-                      </td>
-                      {daysArray.map((day) => {
-                        const present = isPresent(emp.id, day), absent = isAbsent(emp.id, day), late = isLate(emp.id, day), early = isEarly(emp.id, day), edited = isEdited(emp.id, day), weekend = isWeekend(day), holiday = isHoliday(day);
-                        const editors = getEditors(emp.id, day), note = getNote(emp.id, day);
-                        const hasMark = present || absent || late || early;
-                        const showEditors = hasMark && editors.length > 0;
+        {/* ========== TABLE ========== */}
+{employees.length === 0 ? (
+  <div className="text-center py-10 text-slate-400"><p>No employees added yet.</p></div>
+) : (
+  <div className="overflow-x-auto rounded-xl border border-[#e2e8f0]">
+    <table className="w-full border-collapse min-w-[700px]">
+      <thead>
+        <tr>
+          <th className="sticky left-0 bg-[#f1f5f9] z-[3] w-[30px] min-w-[30px] font-semibold py-2.5 px-1 text-center text-xs border-b border-r border-[#e2e8f0] text-slate-700">#</th>
+          <th className="sticky left-[30px] bg-[#f1f5f9] z-[2] font-semibold py-2.5 px-3 text-left text-xs border-b border-r border-[#e2e8f0] text-slate-700">Employee</th>
+          {daysArray.map((day) => (
+            <th key={day} className="bg-[#f1f5f9] font-semibold py-2.5 px-0.5 text-center text-[0.75rem] border-b border-r border-[#e2e8f0] text-slate-600">{day}</th>
+          ))}
+          <th className="bg-[#f1f5f9] font-semibold py-2.5 px-2 text-center text-xs border-b border-[#e2e8f0] text-slate-700">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {getSortedEmployees().map((emp, index) => {
+          const total = getTotalWorkedDays(emp.id);
+          return (
+            <tr key={emp.id}>
+              <td className="sticky left-0 bg-[#f8fafc] z-[3] text-center text-xs text-slate-600 font-medium py-2 px-1 w-[30px] border-b border-r border-[#e2e8f0]">{index + 1}</td>
+              <td className="sticky left-[30px] bg-white z-[2] py-2 px-3 font-medium border-b border-r border-[#e2e8f0] text-slate-800 text-sm">
+                {editEmployeeId === emp.id ? (
+                  <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="w-full py-1 px-2 border-2 border-blue-400 rounded text-sm outline-none text-slate-800" autoFocus />
+                ) : (
+                  <span className="whitespace-nowrap cursor-pointer hover:text-blue-600 transition-colors text-slate-800" onClick={(e) => handleEmployeeClick(e, emp)}>{emp.name}</span>
+                )}
+              </td>
+              {daysArray.map((day) => {
+                const present = isPresent(emp.id, day);
+                const absent = isAbsent(emp.id, day);
+                const late = isLate(emp.id, day);
+                const early = isEarly(emp.id, day);
+                const edited = isEdited(emp.id, day);
+                const weekend = isWeekend(day);
+                const holiday = isHoliday(day);
+                const note = getNote(emp.id, day);
+                const editors = getEditors(emp.id, day);
+                const showEditors = (present || absent || late || early) && editors.length > 0;
 
-                        let cellClass = 'day-cell';
-                        if (present) cellClass += ' present';
-                        if (absent) cellClass += ' absent';
-                        if (late) cellClass += ' late';
-                        if (early) cellClass += ' early';
-                        if (edited) cellClass += ' edited';
-                        if (weekend) cellClass += ' weekend';
-                        if (holiday) cellClass += ' holiday';
+                let cellBg = 'bg-white';
+                let cellText = 'text-transparent';
+                let content = '';
 
-                        let tooltip = `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}`;
-                        if (weekend) tooltip += ' (Weekend)';
-                        if (holiday) tooltip += ` (${getSAHolidays(currentYear).find(h => h.date === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)?.name})`;
-                        if (late) tooltip += ' (Late)';
-                        if (early) tooltip += ' (Early Leave)';
-                        if (note) tooltip += ` – 📝 ${note}`;
-                        if (showEditors) tooltip += ` (edited by ${editors.join(', ')})`;
+                if (present) { cellBg = 'bg-green-100'; cellText = 'text-green-700 font-bold'; content = '✓'; }
+                else if (absent) { cellBg = 'bg-red-100'; cellText = 'text-red-700 font-bold'; content = '✗'; }
+                else if (late) { cellBg = 'bg-yellow-100'; cellText = 'text-yellow-700 font-bold'; content = '⏰'; }
+                else if (early) { cellBg = 'bg-purple-100'; cellText = 'text-purple-700 font-bold'; content = '🚪'; }
+                if (weekend) { cellBg = 'bg-[#cbd5e1]'; cellText = content ? cellText : 'text-[#475569]'; }
+                if (holiday) { cellBg = 'bg-[#fde047]'; cellText = content ? cellText : 'text-[#854d0e] font-medium'; }
 
-                        return (
-                          <td key={day} className={cellClass} onClick={(e) => openPopup(e, emp.id, day)} title={tooltip}>
-                            {present && <span className="check-mark">✓</span>}
-                            {absent && <span className="absent-mark">✗</span>}
-                            {late && <span className="late-mark">⏰</span>}
-                            {early && <span className="early-mark">🚪</span>}
-                            {note && <span className="note-dot" title={note}>📝</span>}
-                            {edited && <span className="edit-indicator">✎</span>}
-                          </td>
-                        );
-                      })}
-                      <td className="total-cell">{total}</td>
-                      {isAdmin && <td className="action-cell"><button onClick={() => deleteEmployee(emp.id)} className="delete-btn" title="Delete employee">🗑️</button></td>}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                // Build tooltip with editor info
+                let tooltip = `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}`;
+                if (weekend) tooltip += ' (Weekend)';
+                if (holiday) {
+                  const holidayName = getSAHolidays(currentYear).find(h => h.date === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)?.name;
+                  tooltip += ` (${holidayName})`;
+                }
+                if (late) tooltip += ' (Late)';
+                if (early) tooltip += ' (Early Leave)';
+                if (note) tooltip += ` – 📝 ${note}`;
+                if (showEditors) tooltip += ` (edited by ${editors.join(', ')})`;
 
-        <footer className="app-footer">
-          <p>Click a blank cell to mark attendance. Options: Present, Absent, Late, or Early Leave (with optional note). Locked after two edits.</p>
-          {isAdmin && <p className="admin-hint">Admin: Click employee name for options. Use 🗑️ to delete.</p>}
-        </footer>
+                return (
+                  <td key={day}
+                    className={`w-9 h-9 text-center cursor-pointer text-sm border-b border-r border-[#e2e8f0] transition relative ${cellBg} ${cellText} ${!weekend ? 'hover:bg-[#f1f5f9]' : ''}`}
+                    onClick={(e) => openPopup(e, emp.id, day)}
+                    title={tooltip}
+                  >
+                    {content}
+                    {note && <span className="absolute bottom-0 left-0.5 text-[0.5rem]" title={note}>📝</span>}
+                    {edited && <span className="absolute top-0 right-0.5 text-[0.45rem] text-orange-600" title="This day has been edited">✎</span>}
+                  </td>
+                );
+              })}
+              <td className="text-center font-bold bg-green-50 text-green-700 border-b border-[#e2e8f0] text-sm">{total}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+)}
+        
+
+        {/* ========== FOOTER ========== */}
+<footer className="text-center mt-5 text-slate-500 text-sm">
+  <p>Click a blank cell to mark attendance. Options: Present, Absent, Late, or Early Leave (with optional note). Locked after two edits.</p>
+  {isAdmin && <p className="text-purple-500 italic mt-1 text-xs">Admin: Click employee name for options (View Report, Rename, Delete).</p>}
+</footer>
       </div>
 
+      {/* ========== MODALS ========== */}
       {showHistory && <HistoryModal history={history} onClose={() => setShowHistory(false)} />}
       {showPasswordModal && <PasswordChangeModal currentUser={currentUser} onClose={() => setShowPasswordModal(false)} onPasswordChanged={onPasswordChanged} />}
       {contextMenu && isAdmin && (
         <ContextMenu contextMenu={contextMenu} contextMenuRef={contextMenuRef}
           onViewReport={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }}
-          onRename={() => startEditEmployee(contextMenu.employee)} />
+          onRename={() => startEditEmployee(contextMenu.employee)}
+          onDelete={() => { deleteEmployee(contextMenu.employee.id); setContextMenu(null); }} />
       )}
       {selectedEmployee && (
         <EmployeeReportModal employee={selectedEmployee} report={getEmployeeReport(selectedEmployee.id)} year={currentYear} onClose={() => setSelectedEmployee(null)} />
       )}
-      <AttendancePopup popup={popup} popupNote={popupNote} setPopupNote={setPopupNote} popupRef={popupRef} onMark={markAttendance} />
       {showEmailModal && (
-  <EmailReportModal
-    employees={employees}
-    attendance={attendance}
-    currentYear={currentYear}
-    currentMonth={currentMonth}
-    onClose={() => setShowEmailModal(false)}
-  />
-)}
+        <EmailReportModal employees={employees} attendance={attendance} currentYear={currentYear} currentMonth={currentMonth} onClose={() => setShowEmailModal(false)} />
+      )}
+      <AttendancePopup popup={popup} popupNote={popupNote} setPopupNote={setPopupNote} popupRef={popupRef} onMark={markAttendance} />
     </div>
   );
 }

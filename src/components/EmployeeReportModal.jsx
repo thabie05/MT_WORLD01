@@ -12,24 +12,45 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
   const totalUnmarked = report.reduce((s, m) => s + m.Unmarked, 0);
 
   return (
-    <div className="history-modal-overlay" onClick={onClose}>
-      <div className="history-modal report-modal" onClick={(e) => e.stopPropagation()}>
-        <h2>📋 {employee.name} – {year} Attendance Report</h2>
-        <div className="report-summary">
-          <div className="report-summary-grid">
-            <div className="report-stat present"><span>✓ Present</span><strong>{totalPresent}</strong></div>
-            <div className="report-stat late"><span>⏰ Late</span><strong>{totalLate}</strong></div>
-            <div className="report-stat early"><span>🚪 Early</span><strong>{totalEarly}</strong></div>
-            <div className="report-stat absent"><span>✗ Absent</span><strong>{totalAbsent}</strong></div>
-            <div className="report-stat weekend"><span>Weekend</span><strong>{totalWeekend}</strong></div>
-            <div className="report-stat holiday"><span>Holiday</span><strong>{totalHoliday}</strong></div>
-            <div className="report-stat unmarked"><span>Unmarked</span><strong>{totalUnmarked}</strong></div>
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
+      <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold text-slate-900 mb-4">📋 {employee.name} – {year} Attendance Report</h2>
+        
+        <div className="grid grid-cols-7 gap-3 mb-5 max-md:grid-cols-4 max-sm:grid-cols-2">
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-green-500">
+            <span className="block text-xs text-slate-500 mb-1">✓ Present</span>
+            <strong className="text-2xl text-slate-800">{totalPresent}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-amber-500">
+            <span className="block text-xs text-slate-500 mb-1">⏰ Late</span>
+            <strong className="text-2xl text-slate-800">{totalLate}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-purple-500">
+            <span className="block text-xs text-slate-500 mb-1">🚪 Early</span>
+            <strong className="text-2xl text-slate-800">{totalEarly}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-red-500">
+            <span className="block text-xs text-slate-500 mb-1">✗ Absent</span>
+            <strong className="text-2xl text-slate-800">{totalAbsent}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-400">
+            <span className="block text-xs text-slate-500 mb-1">📅 Weekend</span>
+            <strong className="text-2xl text-slate-800">{totalWeekend}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-yellow-400">
+            <span className="block text-xs text-slate-500 mb-1">🎉 Holiday</span>
+            <strong className="text-2xl text-slate-800">{totalHoliday}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300">
+            <span className="block text-xs text-slate-500 mb-1">❓ Unmarked</span>
+            <strong className="text-2xl text-slate-800">{totalUnmarked}</strong>
           </div>
         </div>
-        <div className="report-chart">
+
+        <div className="mb-5">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={report}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
@@ -44,27 +65,41 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="report-table-wrapper">
-          <table className="history-table">
-            <thead><tr><th>Month</th><th>Present</th><th>Late</th><th>Early</th><th>Absent</th><th>Weekend</th><th>Holiday</th><th>Unmarked</th><th>Total</th></tr></thead>
+
+        <div className="overflow-x-auto mb-4">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Month</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Present</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Late</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Early</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Absent</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Weekend</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Holiday</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Unmarked</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Total</th>
+              </tr>
+            </thead>
             <tbody>
               {report.map((m) => (
-                <tr key={m.month}>
-                  <td>{m.month}</td>
-                  <td style={{ color: '#22c55e' }}>{m.Present}</td>
-                  <td style={{ color: '#f59e0b' }}>{m.Late}</td>
-                  <td style={{ color: '#8b5cf6' }}>{m.Early}</td>
-                  <td style={{ color: '#ef4444' }}>{m.Absent}</td>
-                  <td style={{ color: '#94a3b8' }}>{m.Weekend}</td>
-                  <td style={{ color: '#fbbf24' }}>{m.Holiday}</td>
-                  <td style={{ color: '#94a3b8' }}>{m.Unmarked}</td>
-                  <td>{new Date(year, monthNames.indexOf(m.month) + 1, 0).getDate()}</td>
+                <tr key={m.month} className="even:bg-slate-50">
+                  <td className="py-2 px-3 border-b border-slate-200 text-slate-700">{m.month}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-green-600">{m.Present}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-amber-600">{m.Late}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-purple-600">{m.Early}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-red-600">{m.Absent}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-slate-500">{m.Weekend}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-yellow-600">{m.Holiday}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-slate-500">{m.Unmarked}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-slate-700">{new Date(year, monthNames.indexOf(m.month) + 1, 0).getDate()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <button className="close-history-btn" onClick={onClose}>Close</button>
+
+        <button onClick={onClose} className="py-2 px-4 bg-slate-800 text-white rounded-lg font-medium text-sm transition hover:bg-slate-700">Close</button>
       </div>
     </div>
   );

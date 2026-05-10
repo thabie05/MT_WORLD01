@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Login from './components/Login';
 import AttendanceRegister from './components/AttendanceRegister';
-import './App.css';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(() => {
