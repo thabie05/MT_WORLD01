@@ -251,6 +251,53 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     ].filter((d) => d.value > 0);
   };
 
+  const clearAttendance = (employeeId, day) => {
+  const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  // Remove the attendance status
+  setAttendance((prev) => {
+    const updated = { ...prev };
+    if (updated[employeeId]) {
+      delete updated[employeeId][dateKey];
+      if (Object.keys(updated[employeeId]).length === 0) {
+        delete updated[employeeId];
+      }
+    }
+    return updated;
+  });
+
+  // Remove the note if exists
+  setNotes((prev) => {
+    const updated = { ...prev };
+    delete updated[`${employeeId}-${dateKey}`];
+    return updated;
+  });
+
+  // Remove edit count
+  setEdits((prev) => {
+    const updated = { ...prev };
+    delete updated[`${employeeId}-${dateKey}`];
+    return updated;
+  });
+
+  // Add to history
+  const employee = employees.find((emp) => emp.id === employeeId);
+  setHistory((prev) => [{
+    id: Date.now(),
+    employeeId,
+    employeeName: employee?.name || 'Unknown',
+    day,
+    date: dateKey,
+    status: 'Cleared',
+    note: '',
+    editor: currentUser.fullName,
+    editedAt: new Date().toISOString(),
+  }, ...prev]);
+
+  setPopup(null);
+  setPopupNote('');
+};
+
   const getEmployeeReport = (empId) => {
     const months = [];
     for (let m = 0; m < 12; m++) {
@@ -429,7 +476,15 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       {showEmailModal && (
         <EmailReportModal employees={employees} attendance={attendance} currentYear={currentYear} currentMonth={currentMonth} onClose={() => setShowEmailModal(false)} />
       )}
-      <AttendancePopup popup={popup} popupNote={popupNote} setPopupNote={setPopupNote} popupRef={popupRef} onMark={markAttendance} />
+      <AttendancePopup 
+  popup={popup} 
+  popupNote={popupNote} 
+  setPopupNote={setPopupNote} 
+  popupRef={popupRef} 
+  onMark={markAttendance} 
+  onClear={clearAttendance}
+  isAdmin={isAdmin}
+/>
     </div>
   );
 }
