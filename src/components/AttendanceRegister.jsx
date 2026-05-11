@@ -204,15 +204,18 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const handleNextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear((prev) => prev + 1); } else setCurrentMonth((prev) => prev + 1); };
 
   const openPopup = (e, employeeId, day) => {
-    e.stopPropagation();
-    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const currentEdits = edits[`${employeeId}-${dateKey}`];
-    const editCount = typeof currentEdits === 'number' ? currentEdits : 0;
-    if (editCount >= 2) return;
-    setPopupNote(getNote(employeeId, day));
-    const rect = e.currentTarget.getBoundingClientRect();
-    setPopup({ employeeId, day, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
-  };
+  e.stopPropagation();
+  const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const currentEdits = edits[`${employeeId}-${dateKey}`];
+  const editCount = typeof currentEdits === 'number' ? currentEdits : 0;
+  
+  // Allow admin to open popup even on locked cells (for Clear option)
+  if (editCount >= 2 && !isAdmin) return;
+  
+  setPopupNote(getNote(employeeId, day));
+  const rect = e.currentTarget.getBoundingClientRect();
+  setPopup({ employeeId, day, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
+};
 
   const handleEmployeeClick = (e, emp) => {
     e.stopPropagation();
@@ -484,6 +487,12 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   onMark={markAttendance} 
   onClear={clearAttendance}
   isAdmin={isAdmin}
+  isLocked={popup ? (() => {
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`;
+    const currentEdits = edits[`${popup.employeeId}-${dateKey}`];
+    const editCount = typeof currentEdits === 'number' ? currentEdits : 0;
+    return editCount >= 2;
+  })() : false}
 />
     </div>
   );
