@@ -1,20 +1,16 @@
+// src/firebase.js
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBkMOF2BUA6EK4WYrlRxww8_zP9sfBF9cs",
-  authDomain: "expense-tracker-20c32.firebaseapp.com",
-  databaseURL: "https://expense-tracker-20c32-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "expense-tracker-20c32",
-  storageBucket: "expense-tracker-20c32.firebasestorage.app",
-  messagingSenderId: "817674894380",
-  appId: "1:817674894380:web:244d132811825d182fe589",
-  measurementId: "G-VSVCPCWCWG"
+  apiKey: "AIzaSyC76PuMz82dyUsaoNNq3ZDofe5zZJ3cqkk",
+  authDomain: "mtworldrollcall.firebaseapp.com",
+  projectId: "mtworldrollcall",
+  storageBucket: "mtworldrollcall.firebasestorage.app",
+  messagingSenderId: "764065953855",
+  appId: "1:764065953855:web:c12d5d8218901f4f39608a",
+  measurementId: "G-BPBLX9X1K5"
 };
 
 const app = initializeApp(firebaseConfig);
-
-// Use a named Firestore database called "mtworld" (create it first in Firebase Console)
-export const db = getFirestore(app, 'mtworld');
-
-// If you prefer the default database, use: export const db = getFirestore(app);
+export const db = getFirestore(app);
