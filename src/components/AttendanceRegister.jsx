@@ -30,6 +30,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [showHistory, setShowHistory] = useState(false);
   const [addError, setAddError] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [highlightedEmployee, setHighlightedEmployee] = useState(null);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -254,38 +255,32 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     ].filter((d) => d.value > 0);
   };
 
-  const clearAttendance = (employeeId, day) => {
+  const clearAttendance = async (employeeId, day) => {
   const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-  // Remove the attendance status
-  setAttendance((prev) => {
-    const updated = { ...prev };
-    if (updated[employeeId]) {
-      delete updated[employeeId][dateKey];
-      if (Object.keys(updated[employeeId]).length === 0) {
-        delete updated[employeeId];
-      }
+  // Create updated copies
+  let updatedAttendance = { ...attendance };
+  if (updatedAttendance[employeeId]) {
+    delete updatedAttendance[employeeId][dateKey];
+    if (Object.keys(updatedAttendance[employeeId]).length === 0) {
+      delete updatedAttendance[employeeId];
     }
-    return updated;
-  });
+  }
 
-  // Remove the note if exists
-  setNotes((prev) => {
-    const updated = { ...prev };
-    delete updated[`${employeeId}-${dateKey}`];
-    return updated;
-  });
+  let updatedNotes = { ...notes };
+  delete updatedNotes[`${employeeId}-${dateKey}`];
 
-  // Remove edit count
-  setEdits((prev) => {
-    const updated = { ...prev };
-    delete updated[`${employeeId}-${dateKey}`];
-    return updated;
-  });
+  let updatedEdits = { ...edits };
+  delete updatedEdits[`${employeeId}-${dateKey}`];
+
+  // Update state
+  setAttendance(updatedAttendance);
+  setNotes(updatedNotes);
+  setEdits(updatedEdits);
 
   // Add to history
   const employee = employees.find((emp) => emp.id === employeeId);
-  setHistory((prev) => [{
+  const historyEntry = {
     id: Date.now(),
     employeeId,
     employeeName: employee?.name || 'Unknown',
@@ -295,12 +290,27 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     note: '',
     editor: currentUser.fullName,
     editedAt: new Date().toISOString(),
-  }, ...prev]);
+  };
+  const updatedHistory = [historyEntry, ...history];
+  setHistory(updatedHistory);
+
+  // Force immediate save to Firestore
+  try {
+    const docRef = doc(db, 'rollcall', 'data');
+    await setDoc(docRef, {
+      employees,
+      attendance: updatedAttendance,
+      edits: updatedEdits,
+      history: updatedHistory,
+      notes: updatedNotes
+    });
+  } catch (err) {
+    console.error('Failed to save after clear:', err);
+  }
 
   setPopup(null);
   setPopupNote('');
 };
-
   const getEmployeeReport = (empId) => {
     const months = [];
     for (let m = 0; m < 12; m++) {
@@ -379,27 +389,49 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     <table className="w-full border-collapse min-w-[700px]">
       <thead>
         <tr>
-          <th className="sticky left-0 bg-[#f1f5f9] z-[3] w-[30px] min-w-[30px] font-semibold py-2.5 px-1 text-center text-xs border-b border-r border-[#e2e8f0] text-slate-700">#</th>
-          <th className="sticky left-[30px] bg-[#f1f5f9] z-[2] font-semibold py-2.5 px-3 text-left text-xs border-b border-r-2 border-[#cbd5e1] text-slate-700">Names of Employees</th>
-          {daysArray.map((day) => (
-            <th key={day} className="bg-[#f1f5f9] font-semibold py-2.5 px-0.5 text-center text-[0.75rem] border-b border-r border-[#e2e8f0] text-slate-600">{day}</th>
-          ))}
-          <th className="bg-[#f1f5f9] font-semibold py-2.5 px-2 text-center text-xs border-b border-[#e2e8f0] text-slate-700">Total</th>
+          <th className="sticky left-0 bg-[#f1f5f9] z-[3] w-[30px] min-w-[30px] font-semibold py-1.5 px-1 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] text-slate-500">#</th>
+          <th className="sticky left-[30px] bg-[#f1f5f9] z-[2] font-semibold py-1.5 px-3 text-left text-[0.65rem] border-b border-r-2 border-[#cbd5e1] text-slate-500">Name of Employees</th>
+          {daysArray.map((day) => {
+            const date = new Date(currentYear, currentMonth, day);
+            const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+            const dayName = dayNames[date.getDay()];
+            return (
+              <th key={day} className="bg-[#f1f5f9] font-semibold py-1.5 px-0.5 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] text-slate-500">
+                <div className="text-[0.55rem] text-slate-400 leading-tight">{dayName}</div>
+                <div className="text-slate-600">{day}</div>
+              </th>
+            );
+          })}
+          <th className="bg-[#f1f5f9] font-semibold py-1.5 px-2 text-center text-[0.65rem] border-b border-[#e2e8f0] text-slate-500">Total</th>
         </tr>
       </thead>
       <tbody>
         {getSortedEmployees().map((emp, index) => {
           const total = getTotalWorkedDays(emp.id);
+          const isHighlighted = highlightedEmployee === emp.id || (popup && popup.employeeId === emp.id);
+          
           return (
-            <tr key={emp.id}>
-              <td className="sticky left-0 bg-[#f8fafc] z-[3] text-center text-xs text-slate-600 font-medium py-2 px-1 w-[30px] border-b border-r border-[#e2e8f0]">{index + 1}</td>
-              <td className="sticky left-[30px] bg-white z-[2] py-2 px-3 font-medium border-b border-r-2 border-[#cbd5e1] text-slate-800 text-sm">
+            <tr 
+              key={emp.id}
+              className={`transition-colors duration-150 ${isHighlighted ? 'bg-blue-50' : ''}`}
+              onMouseEnter={() => setHighlightedEmployee(emp.id)}
+              onMouseLeave={() => setHighlightedEmployee(null)}
+            >
+              {/* Row Number */}
+              <td className={`sticky left-0 z-[3] text-center text-xs text-slate-600 font-medium py-2 px-1 w-[30px] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-[#f8fafc]'}`}>
+                {index + 1}
+              </td>
+              
+              {/* Employee Name */}
+              <td className={`sticky left-[30px] z-[2] py-2 px-3 font-medium border-b border-r-2 border-[#cbd5e1] text-slate-800 text-sm transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-white'}`}>
                 {editEmployeeId === emp.id ? (
                   <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="w-full py-1 px-2 border-2 border-blue-400 rounded text-sm outline-none text-slate-800" autoFocus />
                 ) : (
                   <span className="whitespace-nowrap cursor-pointer hover:text-blue-600 transition-colors text-slate-800" onClick={(e) => handleEmployeeClick(e, emp)}>{emp.name}</span>
                 )}
               </td>
+              
+              {/* Day Cells */}
               {daysArray.map((day) => {
                 const present = isPresent(emp.id, day);
                 const absent = isAbsent(emp.id, day);
@@ -412,7 +444,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 const editors = getEditors(emp.id, day);
                 const showEditors = (present || absent || late || early) && editors.length > 0;
 
-                let cellBg = 'bg-white';
+                let cellBg = '';
                 let cellText = 'text-transparent';
                 let content = '';
 
@@ -423,7 +455,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 if (weekend) { cellBg = 'bg-[#cbd5e1]'; cellText = content ? cellText : 'text-[#475569]'; }
                 if (holiday) { cellBg = 'bg-[#fde047]'; cellText = content ? cellText : 'text-[#854d0e] font-medium'; }
 
-                // Build tooltip with editor info
                 let tooltip = `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}`;
                 if (weekend) tooltip += ' (Weekend)';
                 if (holiday) {
@@ -437,7 +468,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
                 return (
                   <td key={day}
-                    className={`w-9 h-9 text-center cursor-pointer text-sm border-b border-r border-[#e2e8f0] transition relative ${cellBg} ${cellText} ${!weekend ? 'hover:bg-[#f1f5f9]' : ''}`}
+                    className={`w-9 h-9 text-center cursor-pointer text-sm border-b border-r border-[#e2e8f0] transition relative ${cellBg} ${cellText} ${!weekend ? 'hover:bg-[#e2e8f0]' : ''}`}
                     onClick={(e) => openPopup(e, emp.id, day)}
                     title={tooltip}
                   >
@@ -447,16 +478,49 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                   </td>
                 );
               })}
-              <td className="text-center font-bold bg-green-50 text-green-700 border-b border-[#e2e8f0] text-sm">{total}</td>
+              
+              {/* Total */}
+              <td className={`text-center font-bold text-green-700 border-b border-[#e2e8f0] text-sm transition-colors duration-150 ${isHighlighted ? 'bg-green-100' : 'bg-green-50'}`}>
+                {total}
+              </td>
             </tr>
           );
         })}
+
+        {/* ========== DAILY PRESENT COUNT ROW ========== */}
+        <tr className="bg-[#f8fafc]">
+          <td className="sticky left-0 bg-[#e2e8f0] z-[3] text-center text-[0.65rem] text-slate-600 font-semibold py-1.5 px-1 border-b border-r border-[#e2e8f0]" colSpan={2}>
+            Present per day
+          </td>
+          {daysArray.map((day) => {
+            let count = 0;
+            for (const emp of employees) {
+              if (isPresent(emp.id, day) || isLate(emp.id, day) || isEarly(emp.id, day)) {
+                count++;
+              }
+            }
+            return (
+              <td key={day} className="text-center text-[0.7rem] font-bold text-green-700 bg-[#e2e8f0] border-b border-r border-[#e2e8f0] py-1">
+                {count > 0 ? count : ''}
+              </td>
+            );
+          })}
+          {/* Grand Total */}
+          <td className="text-center font-bold text-green-700 bg-green-100 border-b border-[#e2e8f0] text-sm py-1">
+            {(() => {
+              let grandTotal = 0;
+              for (const emp of employees) {
+                grandTotal += getTotalWorkedDays(emp.id);
+              }
+              return grandTotal;
+            })()}
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>
 )}
         
-
         {/* ========== FOOTER ========== */}
 <footer className="text-center mt-5 text-slate-500 text-sm">
   <p>Click a blank cell to mark attendance. Options: Present, Absent, Late, or Early Leave (with optional note). Locked after two edits.</p>
