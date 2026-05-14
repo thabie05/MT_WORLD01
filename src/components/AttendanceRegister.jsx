@@ -31,6 +31,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [addError, setAddError] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [highlightedEmployee, setHighlightedEmployee] = useState(null);
+  const [highlightedDay, setHighlightedDay] = useState(null);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -389,20 +390,21 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     <table className="w-full border-collapse min-w-[700px]">
       <thead>
         <tr>
-          <th className="sticky left-0 bg-[#f1f5f9] z-[3] w-[30px] min-w-[30px] font-semibold py-1.5 px-1 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] text-slate-500">#</th>
-          <th className="sticky left-[30px] bg-[#f1f5f9] z-[2] font-semibold py-1.5 px-3 text-left text-[0.65rem] border-b border-r-2 border-[#cbd5e1] text-slate-500">Name of Employees</th>
+          <th className={`sticky left-0 z-[3] w-[30px] min-w-[30px] font-semibold py-1.5 px-1 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>#</th>
+          <th className={`sticky left-[30px] z-[2] font-semibold py-1.5 px-3 text-left text-[0.65rem] border-b border-r-2 border-[#cbd5e1] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>Name of Employees</th>
           {daysArray.map((day) => {
             const date = new Date(currentYear, currentMonth, day);
             const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
             const dayName = dayNames[date.getDay()];
+            const isDayHighlighted = highlightedDay === day || (popup && popup.day === day);
             return (
-              <th key={day} className="bg-[#f1f5f9] font-semibold py-1.5 px-0.5 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] text-slate-500">
-                <div className="text-[0.55rem] text-slate-400 leading-tight">{dayName}</div>
-                <div className="text-slate-600">{day}</div>
+              <th key={day} className={`font-semibold py-1.5 px-0.5 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${isDayHighlighted ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>
+                <div className={`text-[0.55rem] leading-tight ${isDayHighlighted ? 'text-blue-600' : 'text-slate-400'}`}>{dayName}</div>
+                <div className={isDayHighlighted ? 'text-blue-800' : 'text-slate-600'}>{day}</div>
               </th>
             );
           })}
-          <th className="bg-[#f1f5f9] font-semibold py-1.5 px-2 text-center text-[0.65rem] border-b border-[#e2e8f0] text-slate-500">Total</th>
+          <th className={`font-semibold py-1.5 px-2 text-center text-[0.65rem] border-b border-[#e2e8f0] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>Total</th>
         </tr>
       </thead>
       <tbody>
@@ -415,14 +417,11 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
               key={emp.id}
               className={`transition-colors duration-150 ${isHighlighted ? 'bg-blue-50' : ''}`}
               onMouseEnter={() => setHighlightedEmployee(emp.id)}
-              onMouseLeave={() => setHighlightedEmployee(null)}
+              onMouseLeave={() => { setHighlightedEmployee(null); setHighlightedDay(null); }}
             >
-              {/* Row Number */}
               <td className={`sticky left-0 z-[3] text-center text-xs text-slate-600 font-medium py-2 px-1 w-[30px] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-[#f8fafc]'}`}>
                 {index + 1}
               </td>
-              
-              {/* Employee Name */}
               <td className={`sticky left-[30px] z-[2] py-2 px-3 font-medium border-b border-r-2 border-[#cbd5e1] text-slate-800 text-sm transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-white'}`}>
                 {editEmployeeId === emp.id ? (
                   <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="w-full py-1 px-2 border-2 border-blue-400 rounded text-sm outline-none text-slate-800" autoFocus />
@@ -430,8 +429,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                   <span className="whitespace-nowrap cursor-pointer hover:text-blue-600 transition-colors text-slate-800" onClick={(e) => handleEmployeeClick(e, emp)}>{emp.name}</span>
                 )}
               </td>
-              
-              {/* Day Cells */}
               {daysArray.map((day) => {
                 const present = isPresent(emp.id, day);
                 const absent = isAbsent(emp.id, day);
@@ -443,6 +440,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 const note = getNote(emp.id, day);
                 const editors = getEditors(emp.id, day);
                 const showEditors = (present || absent || late || early) && editors.length > 0;
+                const isDayHighlighted = highlightedDay === day || (popup && popup.day === day);
 
                 let cellBg = '';
                 let cellText = 'text-transparent';
@@ -454,6 +452,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 else if (early) { cellBg = 'bg-purple-100'; cellText = 'text-purple-700 font-bold'; content = '🚪'; }
                 if (weekend) { cellBg = 'bg-[#cbd5e1]'; cellText = content ? cellText : 'text-[#475569]'; }
                 if (holiday) { cellBg = 'bg-[#fde047]'; cellText = content ? cellText : 'text-[#854d0e] font-medium'; }
+                if (isDayHighlighted) { cellBg += ' brightness-90 saturate-150'; }
 
                 let tooltip = `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}`;
                 if (weekend) tooltip += ' (Weekend)';
@@ -470,6 +469,8 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                   <td key={day}
                     className={`w-9 h-9 text-center cursor-pointer text-sm border-b border-r border-[#e2e8f0] transition relative ${cellBg} ${cellText} ${!weekend ? 'hover:bg-[#e2e8f0]' : ''}`}
                     onClick={(e) => openPopup(e, emp.id, day)}
+                    onMouseEnter={() => setHighlightedDay(day)}
+                    onMouseLeave={() => setHighlightedDay(null)}
                     title={tooltip}
                   >
                     {content}
@@ -478,16 +479,14 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                   </td>
                 );
               })}
-              
-              {/* Total */}
-              <td className={`text-center font-bold text-green-700 border-b border-[#e2e8f0] text-sm transition-colors duration-150 ${isHighlighted ? 'bg-green-100' : 'bg-green-50'}`}>
+              <td className={`text-center font-bold text-green-700 border-b border-[#e2e8f0] text-sm transition-colors duration-150 ${isHighlighted ? 'bg-green-200' : 'bg-green-50'}`}>
                 {total}
               </td>
             </tr>
           );
         })}
 
-        {/* ========== DAILY PRESENT COUNT ROW ========== */}
+        {/* Daily Present Count Row */}
         <tr className="bg-[#f8fafc]">
           <td className="sticky left-0 bg-[#e2e8f0] z-[3] text-center text-[0.65rem] text-slate-600 font-semibold py-1.5 px-1 border-b border-r border-[#e2e8f0]" colSpan={2}>
             Present per day
@@ -505,7 +504,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
               </td>
             );
           })}
-          {/* Grand Total */}
           <td className="text-center font-bold text-green-700 bg-green-100 border-b border-[#e2e8f0] text-sm py-1">
             {(() => {
               let grandTotal = 0;
