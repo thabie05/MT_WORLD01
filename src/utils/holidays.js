@@ -27,11 +27,7 @@ export const getSAHolidays = (year) => {
   familyDay.setDate(easterSunday.getDate() + 1);
 
   const formatDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-  holidays.push(
-    { date: formatDate(goodFriday), name: "Good Friday" },
-    { date: formatDate(familyDay), name: "Family Day" }
-  );
+  holidays.push({ date: formatDate(goodFriday), name: "Good Friday" }, { date: formatDate(familyDay), name: "Family Day" });
   return holidays;
 };
 

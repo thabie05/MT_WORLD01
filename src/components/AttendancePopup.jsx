@@ -16,15 +16,20 @@ function AttendancePopup({ popup, popupNote, setPopupNote, popupRef, onMark, onC
           </>
         )}
         
-        {/* Admin Clear button – always visible for admin */}
         {isAdmin && (
-          <button onClick={() => onClear(popup.employeeId, popup.day)} className="py-2 px-3.5 bg-slate-100 text-slate-600 rounded-lg font-semibold text-sm transition hover:bg-slate-200 border border-slate-300">
+          <button 
+            onClick={() => {
+              if (window.confirm('Are you sure you want to clear this cell? This cannot be undone.')) {
+                onClear(popup.employeeId, popup.day);
+              }
+            }} 
+            className="py-2 px-3.5 bg-red-100 text-red-700 rounded-lg font-semibold text-sm transition hover:bg-red-200 border border-red-300"
+          >
             🗑️ Clear
           </button>
         )}
       </div>
       
-      {/* Note input – only for unlocked cells */}
       {!isLocked && (
         <div className="border-t border-slate-200 pt-1.5">
           <input
@@ -37,7 +42,6 @@ function AttendancePopup({ popup, popupNote, setPopupNote, popupRef, onMark, onC
         </div>
       )}
       
-      {/* Locked indicator */}
       {isLocked && (
         <p className="text-xs text-slate-500 text-center">This cell is locked. Admin can clear it.</p>
       )}

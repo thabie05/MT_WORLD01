@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { seedUsersIfNeeded } from '../data/users';
 import { getSAHolidays, monthNames } from '../utils/holidays';
 import PasswordChangeModal from './PasswordChangeModal';
-import StatsChart from './StatsChart';
+import StatsPage from './StatsPage';
 import HistoryModal from './HistoryModal';
 import EmployeeReportModal from './EmployeeReportModal';
 import ContextMenu from './ContextMenu';
@@ -19,7 +18,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [notes, setNotes] = useState({});
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState('asc');
-  const [showStats, setShowStats] = useState(false);
+  const [showStatsPage, setShowStatsPage] = useState(false);
   const [editEmployeeId, setEditEmployeeId] = useState(null);
   const [editEmployeeName, setEditEmployeeName] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -32,6 +31,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [highlightedEmployee, setHighlightedEmployee] = useState(null);
   const [highlightedDay, setHighlightedDay] = useState(null);
+  const [highlightedColumn, setHighlightedColumn] = useState(null);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -41,8 +41,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const isAdmin = currentUser.role === 'admin';
-
-  useEffect(() => { seedUsersIfNeeded(db, doc, getDoc, setDoc); }, []);
 
   // Fetch data from Firestore
   useEffect(() => {
@@ -135,6 +133,31 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     setPopupNote('');
   };
 
+  const clearAttendance = async (employeeId, day) => {
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    let updatedAttendance = { ...attendance };
+    if (updatedAttendance[employeeId]) {
+      delete updatedAttendance[employeeId][dateKey];
+      if (Object.keys(updatedAttendance[employeeId]).length === 0) delete updatedAttendance[employeeId];
+    }
+    let updatedNotes = { ...notes };
+    delete updatedNotes[`${employeeId}-${dateKey}`];
+    let updatedEdits = { ...edits };
+    delete updatedEdits[`${employeeId}-${dateKey}`];
+    setAttendance(updatedAttendance);
+    setNotes(updatedNotes);
+    setEdits(updatedEdits);
+    const employee = employees.find((emp) => emp.id === employeeId);
+    const updatedHistory = [{ id: Date.now(), employeeId, employeeName: employee?.name || 'Unknown', day, date: dateKey, status: 'Cleared', note: '', editor: currentUser.fullName, editedAt: new Date().toISOString() }, ...history];
+    setHistory(updatedHistory);
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      await setDoc(docRef, { employees, attendance: updatedAttendance, edits: updatedEdits, history: updatedHistory, notes: updatedNotes });
+    } catch (err) { console.error('Failed to save after clear:', err); }
+    setPopup(null);
+    setPopupNote('');
+  };
+
   const getStatus = (employeeId, day) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return attendance[employeeId]?.[dateKey] || null;
@@ -206,31 +229,59 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const handleNextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear((prev) => prev + 1); } else setCurrentMonth((prev) => prev + 1); };
 
   const openPopup = (e, employeeId, day) => {
-  e.stopPropagation();
-  const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  const currentEdits = edits[`${employeeId}-${dateKey}`];
-  const editCount = typeof currentEdits === 'number' ? currentEdits : 0;
-  
-  // Allow admin to open popup even on locked cells (for Clear option)
-  if (editCount >= 2 && !isAdmin) return;
-  
-  setPopupNote(getNote(employeeId, day));
-  const rect = e.currentTarget.getBoundingClientRect();
-  setPopup({ employeeId, day, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
-};
+    e.stopPropagation();
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const currentEdits = edits[`${employeeId}-${dateKey}`];
+    const editCount = typeof currentEdits === 'number' ? currentEdits : 0;
+    if (editCount >= 2 && !isAdmin) return;
+    setPopupNote(getNote(employeeId, day));
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPopup({ employeeId, day, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
+  };
 
   const handleEmployeeClick = (e, emp) => {
     e.stopPropagation();
-    if (isAdmin) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setContextMenu({ employee: emp, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
-    } else {
-      setSelectedEmployee(emp);
-    }
+    if (isAdmin) { const rect = e.currentTarget.getBoundingClientRect(); setContextMenu({ employee: emp, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY }); }
+    else setSelectedEmployee(emp);
   };
 
   const getSortedEmployees = () => [...employees].sort((a, b) => sortOrder === 'asc' ? a.name.toLowerCase().localeCompare(b.name.toLowerCase()) : b.name.toLowerCase().localeCompare(a.name.toLowerCase()));
   const toggleSort = () => setSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc');
+
+  const backupData = () => {
+    const data = { employees, attendance, edits, history, notes };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mtworld-backup-${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const restoreData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!window.confirm('This will replace ALL current data with the backup. Are you sure?')) { e.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (data.employees) setEmployees(data.employees);
+        if (data.attendance) setAttendance(data.attendance);
+        if (data.edits) setEdits(data.edits || {});
+        if (data.history) setHistory(data.history || []);
+        if (data.notes) setNotes(data.notes || {});
+        try {
+          const docRef = doc(db, 'rollcall', 'data');
+          await setDoc(docRef, { employees: data.employees || [], attendance: data.attendance || {}, edits: data.edits || {}, history: data.history || [], notes: data.notes || {} });
+          alert('Backup restored successfully!');
+        } catch (err) { alert('Restored locally but failed to save to cloud.'); }
+      } catch (err) { alert('Invalid backup file.'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const calculateStats = () => {
     let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
@@ -256,62 +307,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     ].filter((d) => d.value > 0);
   };
 
-  const clearAttendance = async (employeeId, day) => {
-  const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-  // Create updated copies
-  let updatedAttendance = { ...attendance };
-  if (updatedAttendance[employeeId]) {
-    delete updatedAttendance[employeeId][dateKey];
-    if (Object.keys(updatedAttendance[employeeId]).length === 0) {
-      delete updatedAttendance[employeeId];
-    }
-  }
-
-  let updatedNotes = { ...notes };
-  delete updatedNotes[`${employeeId}-${dateKey}`];
-
-  let updatedEdits = { ...edits };
-  delete updatedEdits[`${employeeId}-${dateKey}`];
-
-  // Update state
-  setAttendance(updatedAttendance);
-  setNotes(updatedNotes);
-  setEdits(updatedEdits);
-
-  // Add to history
-  const employee = employees.find((emp) => emp.id === employeeId);
-  const historyEntry = {
-    id: Date.now(),
-    employeeId,
-    employeeName: employee?.name || 'Unknown',
-    day,
-    date: dateKey,
-    status: 'Cleared',
-    note: '',
-    editor: currentUser.fullName,
-    editedAt: new Date().toISOString(),
-  };
-  const updatedHistory = [historyEntry, ...history];
-  setHistory(updatedHistory);
-
-  // Force immediate save to Firestore
-  try {
-    const docRef = doc(db, 'rollcall', 'data');
-    await setDoc(docRef, {
-      employees,
-      attendance: updatedAttendance,
-      edits: updatedEdits,
-      history: updatedHistory,
-      notes: updatedNotes
-    });
-  } catch (err) {
-    console.error('Failed to save after clear:', err);
-  }
-
-  setPopup(null);
-  setPopupNote('');
-};
   const getEmployeeReport = (empId) => {
     const months = [];
     for (let m = 0; m < 12; m++) {
@@ -336,26 +331,22 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   };
 
   if (loading) return (
-    <div className="flex justify-center items-center min-h-screen text-2xl text-indigo-900">
-      Loading data…
-    </div>
+    <div className="flex justify-center items-center min-h-screen text-2xl text-indigo-900">Loading data…</div>
   );
 
   return (
     <div className="max-w-[1920px] mx-auto p-5 max-sm:p-2.5">
       {/* ========== HEADER ========== */}
-<header className="flex flex-col bg-[linear-gradient(rgba(26,35,126,0.7),rgba(13,71,161,0.2)),url('/background1.png')] bg-left bg-no-repeat bg-contain text-white pt-[150px] pb-[10px] px-6 rounded-xl mb-6 shadow-lg max-sm:py-4 max-sm:px-2">
-  <div className="flex justify-between items-start w-full max-sm:flex-col max-sm:items-center max-sm:gap-2.5">
-    <div className="flex items-center gap-3 flex-wrap max-sm:w-full max-sm:justify-between">
-      <span className="text-[0.95rem] text-yellow-400 cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap" onClick={() => setShowPasswordModal(true)} title="Click to change password">
-        Logged in as: {currentUser.fullName} {isAdmin && '(Admin)'}
-      </span>
-      <button onClick={onLogout} className="bg-white/15 border border-white/30 text-white py-1.5 px-3.5 rounded-lg font-medium text-[0.9rem] transition hover:bg-white/25 h-9">
-        Logout
-      </button>
-    </div>
-  </div>
-</header>
+      <header className="flex flex-col bg-[linear-gradient(rgba(26,35,126,0.7),rgba(13,71,161,0.2)),url('/background1.png')] bg-left bg-no-repeat bg-contain text-white pt-[150px] pb-[10px] px-6 rounded-xl mb-6 shadow-lg max-sm:py-4 max-sm:px-2">
+        <div className="flex justify-between items-start w-full max-sm:flex-col max-sm:items-center max-sm:gap-2.5">
+          <div className="flex items-center gap-3 flex-wrap max-sm:w-full max-sm:justify-between">
+            <span className="text-[0.95rem] text-yellow-400 cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap" onClick={() => setShowPasswordModal(true)} title="Click to change password">
+              Logged in as: {currentUser.fullName} {isAdmin && '(Admin)'}
+            </span>
+            <button onClick={onLogout} className="bg-white/15 border border-white/30 text-white py-1.5 px-3.5 rounded-lg font-medium text-[0.9rem] transition hover:bg-white/25 h-9">Logout</button>
+          </div>
+        </div>
+      </header>
 
       {/* ========== MAIN CARD ========== */}
       <div className="bg-white rounded-xl p-5 shadow-md">
@@ -368,9 +359,18 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <button onClick={() => setShowHistory(true)} className="bg-slate-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-slate-600 transition">View History</button>
-            <button onClick={() => setShowStats(!showStats)} className="bg-purple-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-purple-600 transition">{showStats ? 'Hide Stats' : '📊 Stats'}</button>
+            <button onClick={() => setShowStatsPage(true)} className="bg-purple-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-purple-600 transition">📊 Stats</button>
             <button onClick={() => setShowEmailModal(true)} className="bg-emerald-600 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-emerald-700 transition">📧 Email</button>
             <button onClick={toggleSort} className="bg-slate-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-slate-600 transition min-w-[70px]">{sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}</button>
+            {isAdmin && (
+              <button onClick={backupData} className="bg-amber-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-amber-600 transition" title="Download backup">💾 Backup</button>
+            )}
+            {isAdmin && (
+              <label className="bg-cyan-600 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-cyan-700 transition cursor-pointer" title="Restore from backup">
+                📥 Restore
+                <input type="file" accept=".json" onChange={restoreData} className="hidden" />
+              </label>
+            )}
             <div className="flex gap-2">
               <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} className="py-2 px-3 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition" />
               <button onClick={addEmployee} className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium text-sm hover:bg-green-700 transition">+ Add</button>
@@ -379,151 +379,131 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         </div>
         {addError && <p className="text-red-600 text-xs mb-3 font-medium">{addError}</p>}
 
-        {/* ========== STATS ========== */}
-        {showStats && <StatsChart stats={calculateStats()} />}
-
         {/* ========== TABLE ========== */}
-{employees.length === 0 ? (
-  <div className="text-center py-10 text-slate-400"><p>No employees added yet.</p></div>
-) : (
-  <div className="overflow-x-auto rounded-xl border border-[#e2e8f0]">
-    <table className="w-full border-collapse min-w-[700px]">
-      <thead>
-        <tr>
-          <th className={`sticky left-0 z-[3] w-[30px] min-w-[30px] font-semibold py-1.5 px-1 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>#</th>
-          <th className={`sticky left-[30px] z-[2] font-semibold py-1.5 px-3 text-left text-[0.65rem] border-b border-r-2 border-[#cbd5e1] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>Name of Employees</th>
-          {daysArray.map((day) => {
-            const date = new Date(currentYear, currentMonth, day);
-            const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-            const dayName = dayNames[date.getDay()];
-            const isDayHighlighted = highlightedDay === day || (popup && popup.day === day);
-            return (
-              <th key={day} className={`font-semibold py-1.5 px-0.5 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${isDayHighlighted ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>
-                <div className={`text-[0.55rem] leading-tight ${isDayHighlighted ? 'text-blue-600' : 'text-slate-400'}`}>{dayName}</div>
-                <div className={isDayHighlighted ? 'text-blue-800' : 'text-slate-600'}>{day}</div>
-              </th>
-            );
-          })}
-          <th className={`font-semibold py-1.5 px-2 text-center text-[0.65rem] border-b border-[#e2e8f0] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {getSortedEmployees().map((emp, index) => {
-          const total = getTotalWorkedDays(emp.id);
-          const isHighlighted = highlightedEmployee === emp.id || (popup && popup.employeeId === emp.id);
-          
-          return (
-            <tr 
-              key={emp.id}
-              className={`transition-colors duration-150 ${isHighlighted ? 'bg-blue-50' : ''}`}
-              onMouseEnter={() => setHighlightedEmployee(emp.id)}
-              onMouseLeave={() => { setHighlightedEmployee(null); setHighlightedDay(null); }}
-            >
-              <td className={`sticky left-0 z-[3] text-center text-xs text-slate-600 font-medium py-2 px-1 w-[30px] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-[#f8fafc]'}`}>
-                {index + 1}
-              </td>
-              <td className={`sticky left-[30px] z-[2] py-2 px-3 font-medium border-b border-r-2 border-[#cbd5e1] text-slate-800 text-sm transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-white'}`}>
-                {editEmployeeId === emp.id ? (
-                  <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="w-full py-1 px-2 border-2 border-blue-400 rounded text-sm outline-none text-slate-800" autoFocus />
-                ) : (
-                  <span className="whitespace-nowrap cursor-pointer hover:text-blue-600 transition-colors text-slate-800" onClick={(e) => handleEmployeeClick(e, emp)}>{emp.name}</span>
-                )}
-              </td>
-              {daysArray.map((day) => {
-                const present = isPresent(emp.id, day);
-                const absent = isAbsent(emp.id, day);
-                const late = isLate(emp.id, day);
-                const early = isEarly(emp.id, day);
-                const edited = isEdited(emp.id, day);
-                const weekend = isWeekend(day);
-                const holiday = isHoliday(day);
-                const note = getNote(emp.id, day);
-                const editors = getEditors(emp.id, day);
-                const showEditors = (present || absent || late || early) && editors.length > 0;
-                const isDayHighlighted = highlightedDay === day || (popup && popup.day === day);
+        {employees.length === 0 ? (
+          <div className="text-center py-10 text-slate-400"><p>No employees added yet.</p></div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-[#e2e8f0]">
+            <table className="w-full border-collapse min-w-[700px]">
+              <thead>
+                <tr>
+                  <th className={`sticky left-0 z-[3] w-[30px] min-w-[30px] font-semibold py-1.5 px-1 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>#</th>
+                  <th className={`sticky left-[30px] z-[2] font-semibold py-1.5 px-3 text-left text-[0.65rem] border-b border-r-2 border-[#cbd5e1] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>Name of Employees</th>
+                  {daysArray.map((day) => {
+                    const date = new Date(currentYear, currentMonth, day);
+                    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+                    const dayName = dayNames[date.getDay()];
+                    const isColHighlighted = highlightedColumn === day || (popup && popup.day === day);
+                    return (
+                      <th key={day} className={`font-semibold py-1.5 px-0.5 text-center text-[0.65rem] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${isColHighlighted ? 'bg-blue-300 text-blue-900' : 'bg-[#f1f5f9] text-slate-500'}`}>
+                        <div className={`text-[0.55rem] leading-tight ${isColHighlighted ? 'text-blue-700' : 'text-slate-400'}`}>{dayName}</div>
+                        <div className={isColHighlighted ? 'text-blue-900' : 'text-slate-600'}>{day}</div>
+                      </th>
+                    );
+                  })}
+                  <th className={`font-semibold py-1.5 px-2 text-center text-[0.65rem] border-b border-[#e2e8f0] transition-colors duration-150 ${highlightedEmployee || popup ? 'bg-blue-200 text-blue-800' : 'bg-[#f1f5f9] text-slate-500'}`}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getSortedEmployees().map((emp, index) => {
+                  const total = getTotalWorkedDays(emp.id);
+                  const isHighlighted = highlightedEmployee === emp.id || (popup && popup.employeeId === emp.id);
+                  
+                  return (
+                    <tr 
+                      key={emp.id}
+                      className={`transition-colors duration-150 ${isHighlighted ? 'bg-blue-50' : ''}`}
+                      onMouseEnter={() => setHighlightedEmployee(emp.id)}
+                      onMouseLeave={() => { setHighlightedEmployee(null); setHighlightedDay(null); setHighlightedColumn(null); }}
+                    >
+                      <td className={`sticky left-0 z-[3] text-center text-xs text-slate-600 font-medium py-2 px-1 w-[30px] border-b border-r border-[#e2e8f0] transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-[#f8fafc]'}`}>{index + 1}</td>
+                      <td className={`sticky left-[30px] z-[2] py-2 px-3 font-medium border-b border-r-2 border-[#cbd5e1] text-slate-800 text-sm transition-colors duration-150 ${isHighlighted ? 'bg-blue-100' : 'bg-white'}`}>
+                        {editEmployeeId === emp.id ? (
+                          <input type="text" value={editEmployeeName} onChange={(e) => setEditEmployeeName(e.target.value)} onBlur={saveEditEmployee} onKeyPress={(e) => e.key === 'Enter' && saveEditEmployee()} className="w-full py-1 px-2 border-2 border-blue-400 rounded text-sm outline-none text-slate-800" autoFocus />
+                        ) : (
+                          <span className="whitespace-nowrap cursor-pointer hover:text-blue-600 transition-colors text-slate-800" onClick={(e) => handleEmployeeClick(e, emp)}>{emp.name}</span>
+                        )}
+                      </td>
+                      {daysArray.map((day) => {
+                        const present = isPresent(emp.id, day);
+                        const absent = isAbsent(emp.id, day);
+                        const late = isLate(emp.id, day);
+                        const early = isEarly(emp.id, day);
+                        const edited = isEdited(emp.id, day);
+                        const weekend = isWeekend(day);
+                        const holiday = isHoliday(day);
+                        const note = getNote(emp.id, day);
+                        const editors = getEditors(emp.id, day);
+                        const showEditors = (present || absent || late || early) && editors.length > 0;
+                        const isColHighlighted = highlightedColumn === day || (popup && popup.day === day);
 
-                let cellBg = '';
-                let cellText = 'text-transparent';
-                let content = '';
+                        let cellBg = 'bg-white';
+                        let cellText = 'text-transparent';
+                        let content = '';
 
-                if (present) { cellBg = 'bg-green-100'; cellText = 'text-green-700 font-bold'; content = '✓'; }
-                else if (absent) { cellBg = 'bg-red-100'; cellText = 'text-red-700 font-bold'; content = '✗'; }
-                else if (late) { cellBg = 'bg-yellow-100'; cellText = 'text-yellow-700 font-bold'; content = '⏰'; }
-                else if (early) { cellBg = 'bg-purple-100'; cellText = 'text-purple-700 font-bold'; content = '🚪'; }
-                if (weekend) { cellBg = 'bg-[#cbd5e1]'; cellText = content ? cellText : 'text-[#475569]'; }
-                if (holiday) { cellBg = 'bg-[#fde047]'; cellText = content ? cellText : 'text-[#854d0e] font-medium'; }
-                if (isDayHighlighted) { cellBg += ' brightness-90 saturate-150'; }
+                        if (present) { cellBg = 'bg-green-100'; cellText = 'text-green-700 font-bold'; content = '✓'; }
+                        else if (absent) { cellBg = 'bg-red-100'; cellText = 'text-red-700 font-bold'; content = '✗'; }
+                        else if (late) { cellBg = 'bg-yellow-100'; cellText = 'text-yellow-700 font-bold'; content = '⏰'; }
+                        else if (early) { cellBg = 'bg-purple-100'; cellText = 'text-purple-700 font-bold'; content = '🚪'; }
+                        if (weekend) { cellBg = 'bg-[#cbd5e1]'; cellText = content ? cellText : 'text-[#475569]'; }
+                        if (holiday) { cellBg = 'bg-[#fde047]'; cellText = content ? cellText : 'text-[#854d0e] font-medium'; }
 
-                let tooltip = `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}`;
-                if (weekend) tooltip += ' (Weekend)';
-                if (holiday) {
-                  const holidayName = getSAHolidays(currentYear).find(h => h.date === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)?.name;
-                  tooltip += ` (${holidayName})`;
-                }
-                if (late) tooltip += ' (Late)';
-                if (early) tooltip += ' (Early Leave)';
-                if (note) tooltip += ` – 📝 ${note}`;
-                if (showEditors) tooltip += ` (edited by ${editors.join(', ')})`;
+                        let tooltip = `${emp.name} – ${day} ${monthNames[currentMonth]} ${currentYear}`;
+                        if (weekend) tooltip += ' (Weekend)';
+                        if (holiday) { const holidayName = getSAHolidays(currentYear).find(h => h.date === `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)?.name; tooltip += ` (${holidayName})`; }
+                        if (late) tooltip += ' (Late)';
+                        if (early) tooltip += ' (Early Leave)';
+                        if (note) tooltip += ` – 📝 ${note}`;
+                        if (showEditors) tooltip += ` (edited by ${editors.join(', ')})`;
 
-                return (
-                  <td key={day}
-                    className={`w-9 h-9 text-center cursor-pointer text-sm border-b border-r border-[#e2e8f0] transition relative ${cellBg} ${cellText} ${!weekend ? 'hover:bg-[#e2e8f0]' : ''}`}
-                    onClick={(e) => openPopup(e, emp.id, day)}
-                    onMouseEnter={() => setHighlightedDay(day)}
-                    onMouseLeave={() => setHighlightedDay(null)}
-                    title={tooltip}
-                  >
-                    {content}
-                    {note && <span className="absolute bottom-0 left-0.5 text-[0.5rem]" title={note}>📝</span>}
-                    {edited && <span className="absolute top-0 right-0.5 text-[0.45rem] text-orange-600" title="This day has been edited">✎</span>}
+                        return (
+                          <td key={day}
+                            className={`w-9 h-9 text-center cursor-pointer text-sm border-b border-r border-[#e2e8f0] transition relative ${cellBg} ${cellText} ${!weekend ? 'hover:bg-[#e2e8f0]' : ''} ${isColHighlighted ? (cellBg === 'bg-white' ? 'bg-blue-100' : 'brightness-90 saturate-150 shadow-inner') : ''}`}
+                            onClick={(e) => openPopup(e, emp.id, day)}
+                            onMouseEnter={() => { setHighlightedColumn(day); setHighlightedDay(day); }}
+                            onMouseLeave={() => { setHighlightedColumn(null); setHighlightedDay(null); }}
+                            title={tooltip}
+                          >
+                            {content}
+                            {note && <span className="absolute bottom-0 left-0.5 text-[0.5rem]" title={note}>📝</span>}
+                            {edited && <span className="absolute top-0 right-0.5 text-[0.45rem] text-orange-600" title="This day has been edited">✎</span>}
+                          </td>
+                        );
+                      })}
+                      <td className={`text-center font-bold text-green-700 border-b border-[#e2e8f0] text-sm transition-colors duration-150 ${isHighlighted ? 'bg-green-200' : 'bg-green-50'}`}>{total}</td>
+                    </tr>
+                  );
+                })}
+
+                {/* ========== DAILY PRESENT COUNT ROW ========== */}
+                <tr className="bg-[#f8fafc]">
+                  <td className="sticky left-0 bg-[#e2e8f0] z-[3] text-center text-[0.65rem] text-slate-600 font-semibold py-1.5 px-1 border-b border-r border-[#e2e8f0]" colSpan={2}>Present per day</td>
+                  {daysArray.map((day) => {
+                    let count = 0;
+                    for (const emp of employees) {
+                      if (isPresent(emp.id, day) || isLate(emp.id, day) || isEarly(emp.id, day)) count++;
+                    }
+                    const isColHighlighted = highlightedColumn === day || (popup && popup.day === day);
+                    return (
+                      <td key={day} className={`text-center text-[0.7rem] font-bold text-green-700 border-b border-r border-[#e2e8f0] py-1 transition-colors duration-150 ${isColHighlighted ? 'bg-blue-200' : 'bg-[#e2e8f0]'}`}>
+                        {count > 0 ? count : ''}
+                      </td>
+                    );
+                  })}
+                  <td className="text-center font-bold text-green-700 bg-green-100 border-b border-[#e2e8f0] text-sm py-1">
+                    {(() => { let grandTotal = 0; for (const emp of employees) { grandTotal += getTotalWorkedDays(emp.id); } return grandTotal; })()}
                   </td>
-                );
-              })}
-              <td className={`text-center font-bold text-green-700 border-b border-[#e2e8f0] text-sm transition-colors duration-150 ${isHighlighted ? 'bg-green-200' : 'bg-green-50'}`}>
-                {total}
-              </td>
-            </tr>
-          );
-        })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {/* Daily Present Count Row */}
-        <tr className="bg-[#f8fafc]">
-          <td className="sticky left-0 bg-[#e2e8f0] z-[3] text-center text-[0.65rem] text-slate-600 font-semibold py-1.5 px-1 border-b border-r border-[#e2e8f0]" colSpan={2}>
-            Present per day
-          </td>
-          {daysArray.map((day) => {
-            let count = 0;
-            for (const emp of employees) {
-              if (isPresent(emp.id, day) || isLate(emp.id, day) || isEarly(emp.id, day)) {
-                count++;
-              }
-            }
-            return (
-              <td key={day} className="text-center text-[0.7rem] font-bold text-green-700 bg-[#e2e8f0] border-b border-r border-[#e2e8f0] py-1">
-                {count > 0 ? count : ''}
-              </td>
-            );
-          })}
-          <td className="text-center font-bold text-green-700 bg-green-100 border-b border-[#e2e8f0] text-sm py-1">
-            {(() => {
-              let grandTotal = 0;
-              for (const emp of employees) {
-                grandTotal += getTotalWorkedDays(emp.id);
-              }
-              return grandTotal;
-            })()}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-)}
-        
         {/* ========== FOOTER ========== */}
-<footer className="text-center mt-5 text-slate-500 text-sm">
-  <p>Click a blank cell to mark attendance. Options: Present, Absent, Late, or Early Leave (with optional note). Locked after two edits.</p>
-  {isAdmin && <p className="text-purple-500 italic mt-1 text-xs">Admin: Click employee name for options (View Report, Rename, Delete).</p>}
-</footer>
+        <footer className="text-center mt-5 text-slate-500 text-sm">
+          <p>Click a blank cell to mark attendance. Options: Present, Absent, Late, or Early Leave (with optional note). Locked after two edits.</p>
+          {isAdmin && <p className="text-purple-500 italic mt-1 text-xs">Admin: Click employee name for options. Use 💾 Backup to save data.</p>}
+        </footer>
       </div>
 
       {/* ========== MODALS ========== */}
@@ -535,27 +515,15 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           onRename={() => startEditEmployee(contextMenu.employee)}
           onDelete={() => { deleteEmployee(contextMenu.employee.id); setContextMenu(null); }} />
       )}
-      {selectedEmployee && (
-        <EmployeeReportModal employee={selectedEmployee} report={getEmployeeReport(selectedEmployee.id)} year={currentYear} onClose={() => setSelectedEmployee(null)} />
-      )}
-      {showEmailModal && (
-        <EmailReportModal employees={employees} attendance={attendance} currentYear={currentYear} currentMonth={currentMonth} onClose={() => setShowEmailModal(false)} />
-      )}
-      <AttendancePopup 
-  popup={popup} 
-  popupNote={popupNote} 
-  setPopupNote={setPopupNote} 
-  popupRef={popupRef} 
-  onMark={markAttendance} 
-  onClear={clearAttendance}
-  isAdmin={isAdmin}
-  isLocked={popup ? (() => {
-    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`;
-    const currentEdits = edits[`${popup.employeeId}-${dateKey}`];
-    const editCount = typeof currentEdits === 'number' ? currentEdits : 0;
-    return editCount >= 2;
-  })() : false}
-/>
+      {selectedEmployee && (() => {
+        const reportData = getEmployeeReport(selectedEmployee.id);
+        if (!reportData) return null;
+        return <EmployeeReportModal employee={selectedEmployee} report={reportData} year={currentYear} onClose={() => setSelectedEmployee(null)} />;
+      })()}
+      {showEmailModal && <EmailReportModal employees={employees} attendance={attendance} currentYear={currentYear} currentMonth={currentMonth} onClose={() => setShowEmailModal(false)} />}
+      {showStatsPage && <StatsPage stats={calculateStats()} currentMonth={currentMonth} currentYear={currentYear} onClose={() => setShowStatsPage(false)} />}
+      <AttendancePopup popup={popup} popupNote={popupNote} setPopupNote={setPopupNote} popupRef={popupRef} onMark={markAttendance} onClear={clearAttendance} isAdmin={isAdmin}
+        isLocked={popup ? (() => { const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`; const currentEdits = edits[`${popup.employeeId}-${dateKey}`]; const editCount = typeof currentEdits === 'number' ? currentEdits : 0; return editCount >= 2; })() : false} />
     </div>
   );
 }

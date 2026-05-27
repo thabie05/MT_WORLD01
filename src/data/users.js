@@ -13,17 +13,3 @@ export const loadUsers = () => {
     { username: 'lucky', password: 'lucky123', fullName: 'Lucky Tshilimandila', role: 'user' },
   ];
 };
-
-export const seedUsersIfNeeded = async (db, doc, getDoc, setDoc) => {
-  try {
-    const docRef = doc(db, 'users', 'credentials');
-    const snap = await getDoc(docRef);
-    if (!snap.exists() || !snap.data().users || snap.data().users.length === 0) {
-      const users = loadUsers();
-      await setDoc(docRef, { users });
-      console.log('Users seeded to Firestore!');
-    }
-  } catch (err) {
-    console.error('Seeding failed:', err.message);
-  }
-};

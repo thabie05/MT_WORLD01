@@ -12,7 +12,14 @@ function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onDe
       <button onClick={onRename} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium cursor-pointer transition hover:bg-slate-100 text-slate-800 flex items-center gap-2">
         ✏️ Rename
       </button>
-      <button onClick={onDelete} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium cursor-pointer transition hover:bg-red-50 text-red-600 flex items-center gap-2">
+      <button 
+        onClick={() => {
+          if (window.confirm('Are you sure you want to delete this employee? All their attendance data will be lost.')) {
+            onDelete();
+          }
+        }} 
+        className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium cursor-pointer transition hover:bg-red-50 text-red-600 flex items-center gap-2"
+      >
         🗑️ Delete
       </button>
     </div>, document.body

@@ -18,7 +18,7 @@ function Login({ onLogin }) {
       const docRef = doc(db, 'users', 'credentials');
       const snap = await getDoc(docRef);
       let users;
-      if (snap.exists() && snap.data().users?.length > 0) {
+      if (snap.exists() && snap.data().users && snap.data().users.length > 0) {
         users = snap.data().users;
       } else {
         users = loadUsers();
@@ -30,10 +30,14 @@ function Login({ onLogin }) {
         setError('Invalid username or password');
       }
     } catch (err) {
+      console.error('Failed to fetch users:', err);
       const users = loadUsers();
       const user = users.find((u) => u.username === username && u.password === password);
-      if (user) onLogin({ username: user.username, fullName: user.fullName, role: user.role });
-      else setError('Invalid username or password');
+      if (user) {
+        onLogin({ username: user.username, fullName: user.fullName, role: user.role });
+      } else {
+        setError('Invalid username or password');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,15 +45,11 @@ function Login({ onLogin }) {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 bg-[length:400%_400%] animate-gradient-shift p-5 relative overflow-hidden">
-      {/* Floating orbs */}
       <div className="absolute w-[350px] h-[350px] bg-[radial-gradient(circle,rgba(59,130,246,0.3),transparent_70%)] rounded-full -top-32 -right-32 animate-float animate-pulse-slow" />
       <div className="absolute w-[280px] h-[280px] bg-[radial-gradient(circle,rgba(139,92,246,0.3),transparent_70%)] rounded-full -bottom-28 -left-28 animate-float-reverse animate-pulse-slow" />
       <div className="absolute w-[150px] h-[150px] bg-[radial-gradient(circle,rgba(34,197,94,0.2),transparent_70%)] rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-float animate-pulse-slow" />
 
-      {/* Glass card */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/15 rounded-3xl p-10 w-full max-w-[420px] shadow-[0_25px_50px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] text-center relative z-10 animate-card-entry hover:-translate-y-1 hover:shadow-[0_35px_60px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.15),0_0_40px_rgba(59,130,246,0.15)] transition-all before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-br before:from-white/10 before:via-transparent before:to-white/5 before:pointer-events-none">
-        
-        {/* Animated border glow */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/15 rounded-3xl p-10 w-full max-w-[420px] shadow-[0_25px_50px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] text-center relative z-10 animate-card-entry hover:-translate-y-1 hover:shadow-[0_35px_60px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.15),0_0_40px_rgba(59,130,246,0.15)] transition-all">
         <div className="absolute -inset-0.5 rounded-[26px] bg-gradient-to-r from-transparent via-blue-500/30 to-purple-500/30 via-transparent bg-[length:200%_200%] animate-border-glow opacity-0 hover:opacity-100 transition-opacity -z-10" />
 
         <h1 className="text-[2.5rem] font-extrabold text-white tracking-wider mb-1 [text-shadow:0_2px_10px_rgba(0,0,0,0.3)] animate-title-slide">MT WORLD</h1>
