@@ -340,7 +340,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       <header className="flex flex-col bg-[linear-gradient(rgba(26,35,126,0.7),rgba(13,71,161,0.2)),url('/background1.png')] bg-left bg-no-repeat bg-contain text-white pt-[150px] pb-[10px] px-6 rounded-xl mb-6 shadow-lg max-sm:py-4 max-sm:px-2">
         <div className="flex justify-between items-start w-full max-sm:flex-col max-sm:items-center max-sm:gap-2.5">
           <div className="flex items-center gap-3 flex-wrap max-sm:w-full max-sm:justify-between">
-            <span className="text-[0.95rem] text-yellow-400 cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap" onClick={() => setShowPasswordModal(true)} title="Click to change password">
+            <span className="text-[0.95rem] font-black text-white [text-stroke:0.5px_black] [-webkit-text-stroke:0.5px_black] cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap" onClick={() => setShowPasswordModal(true)} title="Click to change password">
               Logged in as: {currentUser.fullName} {isAdmin && '(Admin)'}
             </span>
             <button onClick={onLogout} className="bg-white/15 border border-white/30 text-white py-1.5 px-3.5 rounded-lg font-medium text-[0.9rem] transition hover:bg-white/25 h-9">Logout</button>
