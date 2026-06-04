@@ -9,6 +9,7 @@ import EmployeeReportModal from './EmployeeReportModal';
 import ContextMenu from './ContextMenu';
 import AttendancePopup from './AttendancePopup';
 import EmailReportModal from './EmailReportModal';
+import ConfirmModal from './ConfirmModal';
 
 function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [employees, setEmployees] = useState([]);
@@ -32,6 +33,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [highlightedEmployee, setHighlightedEmployee] = useState(null);
   const [highlightedDay, setHighlightedDay] = useState(null);
   const [highlightedColumn, setHighlightedColumn] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -127,7 +129,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     setAttendance((prev) => { const updated = { ...prev }; const empAttendance = { ...(updated[employeeId] || {}) }; empAttendance[dateKey] = status; if (Object.keys(empAttendance).length === 0) delete updated[employeeId]; else updated[employeeId] = empAttendance; return updated; });
     if (noteText.trim()) setNotes((prev) => ({ ...prev, [`${employeeId}-${dateKey}`]: noteText.trim() }));
     const employee = employees.find((emp) => emp.id === employeeId);
-    const statusLabel = status === 'present' ? 'Present' : status === 'absent' ? 'Absent' : status === 'late' ? 'Late' : 'Early';
+    const statusLabel = status === 'present' ? 'Present' : status === 'absent' ? 'Absent' : status === 'late' ? 'Late' : status === 'early' ? 'Early' : 'Off Duty';
     setHistory((prev) => [{ id: Date.now(), employeeId, employeeName: employee?.name || 'Unknown', day, date: dateKey, status: statusLabel, note: noteText.trim() || '', editor: currentUser.fullName, editedAt: new Date().toISOString() }, ...prev]);
     setPopup(null);
     setPopupNote('');
@@ -167,6 +169,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const isAbsent = (employeeId, day) => getStatus(employeeId, day) === 'absent';
   const isLate = (employeeId, day) => getStatus(employeeId, day) === 'late';
   const isEarly = (employeeId, day) => getStatus(employeeId, day) === 'early';
+  const isOff = (employeeId, day) => getStatus(employeeId, day) === 'off';
   const isEdited = (employeeId, day) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const count = edits[`${employeeId}-${dateKey}`];
@@ -239,6 +242,18 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     setPopup({ employeeId, day, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY });
   };
 
+  const handleClearConfirm = (employeeId, day) => {
+  const employee = employees.find((emp) => emp.id === employeeId);
+  setPopup(null);
+  setConfirmModal({
+    message: `Clear the attendance mark for ${employee?.name || 'this employee'} on day ${day}? This cannot be undone.`,
+    onConfirm: () => {
+      clearAttendance(employeeId, day);
+      setConfirmModal(null);
+    }
+  });
+};
+
   const handleEmployeeClick = (e, emp) => {
     e.stopPropagation();
     if (isAdmin) { const rect = e.currentTarget.getBoundingClientRect(); setContextMenu({ employee: emp, x: rect.left + window.scrollX, y: rect.bottom + window.scrollY }); }
@@ -260,75 +275,83 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   };
 
   const restoreData = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (!window.confirm('This will replace ALL current data with the backup. Are you sure?')) { e.target.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const data = JSON.parse(event.target.result);
-        if (data.employees) setEmployees(data.employees);
-        if (data.attendance) setAttendance(data.attendance);
-        if (data.edits) setEdits(data.edits || {});
-        if (data.history) setHistory(data.history || []);
-        if (data.notes) setNotes(data.notes || {});
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  setConfirmModal({
+    message: 'This will replace ALL current data with the backup. Are you sure?',
+    onConfirm: () => {
+      setConfirmModal(null);
+      const reader = new FileReader();
+      reader.onload = async (event) => {
         try {
-          const docRef = doc(db, 'rollcall', 'data');
-          await setDoc(docRef, { employees: data.employees || [], attendance: data.attendance || {}, edits: data.edits || {}, history: data.history || [], notes: data.notes || {} });
-          alert('Backup restored successfully!');
-        } catch (err) { alert('Restored locally but failed to save to cloud.'); }
-      } catch (err) { alert('Invalid backup file.'); }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+          const data = JSON.parse(event.target.result);
+          if (data.employees) setEmployees(data.employees);
+          if (data.attendance) setAttendance(data.attendance);
+          if (data.edits) setEdits(data.edits || {});
+          if (data.history) setHistory(data.history || []);
+          if (data.notes) setNotes(data.notes || {});
+          try {
+            const docRef = doc(db, 'rollcall', 'data');
+            await setDoc(docRef, { employees: data.employees || [], attendance: data.attendance || {}, edits: data.edits || {}, history: data.history || [], notes: data.notes || {} });
+            alert('Backup restored successfully!');
+          } catch (err) { alert('Restored locally but failed to save to cloud.'); }
+        } catch (err) { alert('Invalid backup file.'); }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+  });
+};
 
   const calculateStats = () => {
-    let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
-    for (const emp of employees) {
-      for (const day of daysArray) {
-        if (isWeekend(day)) weekendCount++;
-        else if (isHoliday(day)) holidayCount++;
-        else if (isPresent(emp.id, day)) presentCount++;
-        else if (isLate(emp.id, day)) lateCount++;
-        else if (isEarly(emp.id, day)) earlyCount++;
-        else if (isAbsent(emp.id, day)) absentCount++;
-        else blankCount++;
-      }
+  let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, offCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
+  for (const emp of employees) {
+    for (const day of daysArray) {
+      if (isWeekend(day)) weekendCount++;
+      else if (isHoliday(day)) holidayCount++;
+      else if (isPresent(emp.id, day)) presentCount++;
+      else if (isLate(emp.id, day)) lateCount++;
+      else if (isEarly(emp.id, day)) earlyCount++;
+      else if (isOff(emp.id, day)) offCount++;
+      else if (isAbsent(emp.id, day)) absentCount++;
+      else blankCount++;
     }
-    return [
-      { name: 'Present', value: presentCount, color: '#22c55e' },
-      { name: 'Late', value: lateCount, color: '#f59e0b' },
-      { name: 'Early Leave', value: earlyCount, color: '#8b5cf6' },
-      { name: 'Absent', value: absentCount, color: '#ef4444' },
-      { name: 'Weekend', value: weekendCount, color: '#94a3b8' },
-      { name: 'Holiday', value: holidayCount, color: '#fbbf24' },
-      { name: 'Unmarked', value: blankCount, color: '#e2e8f0' },
-    ].filter((d) => d.value > 0);
-  };
-
+  }
+  return [
+    { name: 'Present', value: presentCount, color: '#22c55e' },
+    { name: 'Late', value: lateCount, color: '#f59e0b' },
+    { name: 'Early Leave', value: earlyCount, color: '#8b5cf6' },
+    { name: 'Absent', value: absentCount, color: '#ef4444' },
+    { name: 'Off Duty', value: offCount, color: '#94a3b8' },
+    { name: 'Weekend', value: weekendCount, color: '#cbd5e1' },
+    { name: 'Holiday', value: holidayCount, color: '#fbbf24' },
+    { name: 'Unmarked', value: blankCount, color: '#e2e8f0' },
+  ].filter((d) => d.value > 0);
+};
   const getEmployeeReport = (empId) => {
-    const months = [];
-    for (let m = 0; m < 12; m++) {
-      const daysInM = new Date(currentYear, m + 1, 0).getDate();
-      let present = 0, absent = 0, late = 0, early = 0, weekend = 0, holiday = 0, unmarked = 0;
-      for (let d = 1; d <= daysInM; d++) {
-        const date = new Date(currentYear, m, d);
-        const dateKey = `${currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const dow = date.getDay();
-        const isH = getSAHolidays(currentYear).some((h) => h.date === dateKey);
-        if (dow === 0 || dow === 6) weekend++;
-        else if (isH) holiday++;
-        else if (attendance[empId]?.[dateKey] === 'present') present++;
-        else if (attendance[empId]?.[dateKey] === 'late') late++;
-        else if (attendance[empId]?.[dateKey] === 'early') early++;
-        else if (attendance[empId]?.[dateKey] === 'absent') absent++;
-        else unmarked++;
-      }
-      months.push({ month: monthNames[m], Present: present, Late: late, Early: early, Absent: absent, Weekend: weekend, Holiday: holiday, Unmarked: unmarked });
+  const months = [];
+  for (let m = 0; m < 12; m++) {
+    const daysInM = new Date(currentYear, m + 1, 0).getDate();
+    let present = 0, absent = 0, late = 0, early = 0, off = 0, weekend = 0, holiday = 0, unmarked = 0;
+    for (let d = 1; d <= daysInM; d++) {
+      const date = new Date(currentYear, m, d);
+      const dateKey = `${currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dow = date.getDay();
+      const isH = getSAHolidays(currentYear).some((h) => h.date === dateKey);
+      if (dow === 0 || dow === 6) weekend++;
+      else if (isH) holiday++;
+      else if (attendance[empId]?.[dateKey] === 'present') present++;
+      else if (attendance[empId]?.[dateKey] === 'late') late++;
+      else if (attendance[empId]?.[dateKey] === 'early') early++;
+      else if (attendance[empId]?.[dateKey] === 'off') off++;
+      else if (attendance[empId]?.[dateKey] === 'absent') absent++;
+      else unmarked++;
     }
-    return months;
-  };
+    months.push({ month: monthNames[m], Present: present, Late: late, Early: early, Absent: absent, OffDuty: off, Weekend: weekend, Holiday: holiday, Unmarked: unmarked });
+  }
+  return months;
+};
 
   if (loading) return (
     <div className="flex justify-center items-center min-h-screen text-2xl text-indigo-900">Loading data…</div>
@@ -340,7 +363,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       <header className="flex flex-col bg-[linear-gradient(rgba(26,35,126,0.7),rgba(13,71,161,0.2)),url('/background1.png')] bg-left bg-no-repeat bg-contain text-white pt-[150px] pb-[10px] px-6 rounded-xl mb-6 shadow-lg max-sm:py-4 max-sm:px-2">
         <div className="flex justify-between items-start w-full max-sm:flex-col max-sm:items-center max-sm:gap-2.5">
           <div className="flex items-center gap-3 flex-wrap max-sm:w-full max-sm:justify-between">
-            <span className="text-[0.95rem] font-black text-white [text-stroke:0.5px_black] [-webkit-text-stroke:0.5px_black] cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap" onClick={() => setShowPasswordModal(true)} title="Click to change password">
+            <span className="text-[0.95rem] font-bold text-black [text-stroke:0.5px_white] [-webkit-text-stroke:0.5px_white] cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap" onClick={() => setShowPasswordModal(true)} title="Click to change password">
               Logged in as: {currentUser.fullName} {isAdmin && '(Admin)'}
             </span>
             <button onClick={onLogout} className="bg-white/15 border border-white/30 text-white py-1.5 px-3.5 rounded-lg font-medium text-[0.9rem] transition hover:bg-white/25 h-9">Logout</button>
@@ -429,6 +452,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                         const absent = isAbsent(emp.id, day);
                         const late = isLate(emp.id, day);
                         const early = isEarly(emp.id, day);
+                        const off = isOff(emp.id, day);
                         const edited = isEdited(emp.id, day);
                         const weekend = isWeekend(day);
                         const holiday = isHoliday(day);
@@ -445,6 +469,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                         else if (absent) { cellBg = 'bg-red-100'; cellText = 'text-red-700 font-bold'; content = '✗'; }
                         else if (late) { cellBg = 'bg-yellow-100'; cellText = 'text-yellow-700 font-bold'; content = '⏰'; }
                         else if (early) { cellBg = 'bg-purple-100'; cellText = 'text-purple-700 font-bold'; content = '🚪'; }
+                        else if (off) { cellBg = 'bg-slate-200'; cellText = 'text-slate-700 font-bold'; content = 'OFF'; }
                         if (weekend) { cellBg = 'bg-[#cbd5e1]'; cellText = content ? cellText : 'text-[#475569]'; }
                         if (holiday) { cellBg = 'bg-[#fde047]'; cellText = content ? cellText : 'text-[#854d0e] font-medium'; }
 
@@ -507,14 +532,29 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       </div>
 
       {/* ========== MODALS ========== */}
-      {showHistory && <HistoryModal history={history} onClose={() => setShowHistory(false)} />}
-      {showPasswordModal && <PasswordChangeModal currentUser={currentUser} onClose={() => setShowPasswordModal(false)} onPasswordChanged={onPasswordChanged} />}
       {contextMenu && isAdmin && (
-        <ContextMenu contextMenu={contextMenu} contextMenuRef={contextMenuRef}
-          onViewReport={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }}
-          onRename={() => startEditEmployee(contextMenu.employee)}
-          onDelete={() => { deleteEmployee(contextMenu.employee.id); setContextMenu(null); }} />
-      )}
+  <ContextMenu contextMenu={contextMenu} contextMenuRef={contextMenuRef}
+    onViewReport={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }}
+    onRename={() => startEditEmployee(contextMenu.employee)}
+    onDelete={() => { 
+      setContextMenu(null);
+      setConfirmModal({
+        message: `Delete "${contextMenu.employee.name}" and all their attendance data? This cannot be undone.`,
+        onConfirm: () => {
+          deleteEmployee(contextMenu.employee.id);
+          setConfirmModal(null);
+        }
+      });
+    }} />
+)}
+{confirmModal && (
+  <ConfirmModal 
+    message={confirmModal.message}
+    onConfirm={confirmModal.onConfirm}
+    onCancel={() => setConfirmModal(null)}
+  />
+)}
+
       {selectedEmployee && (() => {
         const reportData = getEmployeeReport(selectedEmployee.id);
         if (!reportData) return null;
@@ -522,8 +562,22 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       })()}
       {showEmailModal && <EmailReportModal employees={employees} attendance={attendance} currentYear={currentYear} currentMonth={currentMonth} onClose={() => setShowEmailModal(false)} />}
       {showStatsPage && <StatsPage stats={calculateStats()} currentMonth={currentMonth} currentYear={currentYear} onClose={() => setShowStatsPage(false)} />}
-      <AttendancePopup popup={popup} popupNote={popupNote} setPopupNote={setPopupNote} popupRef={popupRef} onMark={markAttendance} onClear={clearAttendance} isAdmin={isAdmin}
-        isLocked={popup ? (() => { const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`; const currentEdits = edits[`${popup.employeeId}-${dateKey}`]; const editCount = typeof currentEdits === 'number' ? currentEdits : 0; return editCount >= 2; })() : false} />
+      <AttendancePopup 
+  popup={popup} 
+  popupNote={popupNote} 
+  setPopupNote={setPopupNote} 
+  popupRef={popupRef} 
+  onMark={markAttendance} 
+  onClear={clearAttendance} 
+  isAdmin={isAdmin}
+  onConfirmClear={handleClearConfirm}
+  isLocked={popup ? (() => { 
+    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`; 
+    const currentEdits = edits[`${popup.employeeId}-${dateKey}`]; 
+    const editCount = typeof currentEdits === 'number' ? currentEdits : 0; 
+    return editCount >= 2; 
+  })() : false}
+/>
     </div>
   );
 }

@@ -33,9 +33,15 @@ function App() {
   }, [currentUser]);
 
   const handleLogin = (user) => {
-    setCurrentUser(user);
+  setCurrentUser(user);
+  
+  // Only save to localStorage if "Remember Me" is checked
+  if (user.rememberMe) {
     localStorage.setItem('mtworld_current_user', JSON.stringify(user));
-  };
+  } else {
+    localStorage.removeItem('mtworld_current_user');
+  }
+};
 
   const handleLogout = () => {
     setCurrentUser(null);

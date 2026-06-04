@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-function AttendancePopup({ popup, popupNote, setPopupNote, popupRef, onMark, onClear, isAdmin, isLocked }) {
+function AttendancePopup({ popup, popupNote, setPopupNote, popupRef, onMark, onClear, isAdmin, isLocked, onConfirmClear }) {
   if (!popup) return null;
 
   return createPortal(
@@ -13,16 +13,17 @@ function AttendancePopup({ popup, popupNote, setPopupNote, popupRef, onMark, onC
             <button onClick={() => onMark(popup.employeeId, popup.day, 'absent', popupNote)} className="py-2 px-3.5 bg-red-100 text-red-800 rounded-lg font-semibold text-sm transition hover:bg-red-200">✗ Absent</button>
             <button onClick={() => onMark(popup.employeeId, popup.day, 'late', popupNote)} className="py-2 px-3.5 bg-yellow-100 text-yellow-800 rounded-lg font-semibold text-sm transition hover:bg-yellow-200">⏰ Late</button>
             <button onClick={() => onMark(popup.employeeId, popup.day, 'early', popupNote)} className="py-2 px-3.5 bg-purple-100 text-purple-800 rounded-lg font-semibold text-sm transition hover:bg-purple-200">🚪 Early</button>
+            <button onClick={() => onMark(popup.employeeId, popup.day, 'off', popupNote)} className="py-2 px-3.5 bg-slate-200 text-slate-700 rounded-lg font-semibold text-sm transition hover:bg-slate-300">📋 Off Duty</button>
           </>
         )}
         
         {isAdmin && (
           <button 
             onClick={() => {
-              if (window.confirm('Are you sure you want to clear this cell? This cannot be undone.')) {
-                onClear(popup.employeeId, popup.day);
+              if (onConfirmClear) {
+                onConfirmClear(popup.employeeId, popup.day);
               }
-            }} 
+            }}
             className="py-2 px-3.5 bg-red-100 text-red-700 rounded-lg font-semibold text-sm transition hover:bg-red-200 border border-red-300"
           >
             🗑️ Clear
@@ -32,13 +33,7 @@ function AttendancePopup({ popup, popupNote, setPopupNote, popupRef, onMark, onC
       
       {!isLocked && (
         <div className="border-t border-slate-200 pt-1.5">
-          <input
-            type="text"
-            placeholder="Add a note (e.g., Doctor's appointment)"
-            value={popupNote}
-            onChange={(e) => setPopupNote(e.target.value)}
-            className="w-full py-1.5 px-2.5 border border-slate-300 rounded-lg text-xs bg-slate-50 text-slate-800 outline-none transition focus:border-blue-500"
-          />
+          <input type="text" placeholder="Add a note (e.g., Doctor's appointment)" value={popupNote} onChange={(e) => setPopupNote(e.target.value)} className="w-full py-1.5 px-2.5 border border-slate-300 rounded-lg text-xs bg-slate-50 text-slate-800 outline-none transition focus:border-blue-500" />
         </div>
       )}
       
