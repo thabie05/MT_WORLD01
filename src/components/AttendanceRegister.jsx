@@ -531,30 +531,24 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         </footer>
       </div>
 
-      {/* ========== MODALS ========== */}
+            {/* ========== MODALS ========== */}
+      {showHistory && <HistoryModal history={history} onClose={() => setShowHistory(false)} />}
+      {showPasswordModal && <PasswordChangeModal currentUser={currentUser} onClose={() => setShowPasswordModal(false)} onPasswordChanged={onPasswordChanged} />}
       {contextMenu && isAdmin && (
-  <ContextMenu contextMenu={contextMenu} contextMenuRef={contextMenuRef}
-    onViewReport={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }}
-    onRename={() => startEditEmployee(contextMenu.employee)}
-    onDelete={() => { 
-      setContextMenu(null);
-      setConfirmModal({
-        message: `Delete "${contextMenu.employee.name}" and all their attendance data? This cannot be undone.`,
-        onConfirm: () => {
-          deleteEmployee(contextMenu.employee.id);
-          setConfirmModal(null);
-        }
-      });
-    }} />
-)}
-{confirmModal && (
-  <ConfirmModal 
-    message={confirmModal.message}
-    onConfirm={confirmModal.onConfirm}
-    onCancel={() => setConfirmModal(null)}
-  />
-)}
-
+        <ContextMenu contextMenu={contextMenu} contextMenuRef={contextMenuRef}
+          onViewReport={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }}
+          onRename={() => startEditEmployee(contextMenu.employee)}
+          onDelete={() => { 
+            setContextMenu(null);
+            setConfirmModal({
+              message: `Delete "${contextMenu.employee.name}" and all their attendance data? This cannot be undone.`,
+              onConfirm: () => {
+                deleteEmployee(contextMenu.employee.id);
+                setConfirmModal(null);
+              }
+            });
+          }} />
+      )}
       {selectedEmployee && (() => {
         const reportData = getEmployeeReport(selectedEmployee.id);
         if (!reportData) return null;
@@ -562,6 +556,13 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
       })()}
       {showEmailModal && <EmailReportModal employees={employees} attendance={attendance} currentYear={currentYear} currentMonth={currentMonth} onClose={() => setShowEmailModal(false)} />}
       {showStatsPage && <StatsPage stats={calculateStats()} currentMonth={currentMonth} currentYear={currentYear} onClose={() => setShowStatsPage(false)} />}
+      {confirmModal && (
+        <ConfirmModal 
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
       <AttendancePopup 
   popup={popup} 
   popupNote={popupNote} 

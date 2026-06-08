@@ -7,7 +7,7 @@ const EMAILJS_SERVICE_ID = 'service_xu24ngt';
 const EMAILJS_TEMPLATE_ID = 'template_s5kmikd';
 
 function EmailReportModal({ employees, attendance, currentYear, currentMonth, onClose }) {
-  const [recipientEmail, setRecipientEmail] = useState('thabieshooter@gmail.com');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [sending, setSending] = useState(false);
@@ -118,13 +118,13 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
           <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-amber-500"><span className="block text-xs text-slate-500 mb-1">⏰ Late</span><strong className="text-2xl text-slate-800">{totals.late}</strong></div>
           <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-purple-500"><span className="block text-xs text-slate-500 mb-1">🚪 Early</span><strong className="text-2xl text-slate-800">{totals.early}</strong></div>
           <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-red-500"><span className="block text-xs text-slate-500 mb-1">✗ Absent</span><strong className="text-2xl text-slate-800">{totals.absent}</strong></div>
-          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300"><span className="block text-xs text-slate-500 mb-1">❓ Unmarked</span><strong className="text-2xl text-slate-800">{totals.unmarked}</strong></div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300"><span className="block text-xs text-slate-500 mb-1">📋 Off Duty</span><strong className="text-2xl text-slate-800">{totals.off}</strong></div>
         </div>
 
         <form onSubmit={handleSend}>
           <div className="mb-4">
             <label className="block text-sm font-semibold text-slate-600 mb-1.5">Recipient Email</label>
-            <input type="email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} required className="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm bg-slate-50 text-slate-800 outline-none focus:border-blue-500" />
+            <input type="email" placeholder="Enter recipient's email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} required className="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm bg-slate-50 text-slate-800 outline-none focus:border-blue-500" />
           </div>
           {error && <p className="text-red-600 text-sm text-center mb-3 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
           {success && <p className="text-green-600 text-sm text-center mb-3 bg-green-50 px-3 py-2 rounded-lg">{success}</p>}
