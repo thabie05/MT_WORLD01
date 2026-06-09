@@ -3,7 +3,7 @@ import emailjs from '@emailjs/browser';
 import { monthNames } from '../utils/holidays';
 
 const EMAILJS_PUBLIC_KEY = 'gMdPl4OE4ZPnLepft';
-const EMAILJS_SERVICE_ID = 'service_xu24ngt';
+const EMAILJS_SERVICE_ID = 'service_4y1jslc';
 const EMAILJS_TEMPLATE_ID = 'template_s5kmikd';
 
 function EmailReportModal({ employees, attendance, currentYear, currentMonth, onClose }) {
@@ -18,7 +18,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
     const reportRows = employees.map((emp) => {
-      let present = 0, absent = 0, late = 0, early = 0, off = 0, unmarked = 0;
+      let present = 0, absent = 0, late = 0, early = 0, off = 0;
       for (const day of daysArray) {
         const dateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const status = attendance[emp.id]?.[dateKey];
@@ -27,22 +27,24 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
         else if (status === 'late') late++;
         else if (status === 'early') early++;
         else if (status === 'off') off++;
-        else unmarked++;
       }
-      return { name: emp.name, present, absent, late, early, off, unmarked, total: present + late + early };
+      return { name: emp.name, present, absent, late, early, off, total: present + late + early };
     });
     const totals = reportRows.reduce((acc, row) => ({
-      present: acc.present + row.present, absent: acc.absent + row.absent,
-      late: acc.late + row.late, early: acc.early + row.early,
-      off: acc.off + row.off, unmarked: acc.unmarked + row.unmarked, total: acc.total + row.total,
-    }), { present: 0, absent: 0, late: 0, early: 0, off: 0, unmarked: 0, total: 0 });
+      present: acc.present + row.present,
+      absent: acc.absent + row.absent,
+      late: acc.late + row.late,
+      early: acc.early + row.early,
+      off: acc.off + row.off,
+      total: acc.total + row.total,
+    }), { present: 0, absent: 0, late: 0, early: 0, off: 0, total: 0 });
     return { reportRows, totals, daysInMonth };
   };
 
   const buildEmailTable = (reportRows) => {
-    let tableHTML = `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;"><thead style="background:#1e293b;color:white;"><tr><th>#</th><th>Employee</th><th>✓ Present</th><th>⏰ Late</th><th>🚪 Early</th><th>✗ Absent</th><th>📋 Off Duty</th><th>❓ Unmarked</th><th>Total</th></tr></thead><tbody>`;
+    let tableHTML = `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;"><thead style="background:#1e293b;color:white;"><tr><th>#</th><th>Employee</th><th>✓ Present</th><th>⏰ Late</th><th>🚪 Early</th><th>✗ Absent</th><th>📋 Off Duty</th><th>Total Worked Days</th></tr></thead><tbody>`;
     reportRows.forEach((row, i) => {
-      tableHTML += `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'};"><td style="text-align:center;">${i + 1}</td><td>${row.name}</td><td style="text-align:center;color:#22c55e;">${row.present}</td><td style="text-align:center;color:#f59e0b;">${row.late}</td><td style="text-align:center;color:#8b5cf6;">${row.early}</td><td style="text-align:center;color:#ef4444;">${row.absent}</td><td style="text-align:center;color:#94a3b8;">${row.off}</td><td style="text-align:center;color:#94a3b8;">${row.unmarked}</td><td style="text-align:center;font-weight:bold;">${row.total}</td></tr>`;
+      tableHTML += `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'};"><td style="text-align:center;">${i + 1}</td><td>${row.name}</td><td style="text-align:center;color:#22c55e;">${row.present}</td><td style="text-align:center;color:#f59e0b;">${row.late}</td><td style="text-align:center;color:#8b5cf6;">${row.early}</td><td style="text-align:center;color:#ef4444;">${row.absent}</td><td style="text-align:center;color:#94a3b8;">${row.off}</td><td style="text-align:center;font-weight:bold;">${row.total}</td></tr>`;
     });
     tableHTML += `</tbody></table>`;
     return tableHTML;
@@ -50,7 +52,9 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
 
   const handleSend = async (e) => {
     e.preventDefault();
-    setError(''); setSuccess(''); setSending(true);
+    setError('');
+    setSuccess('');
+    setSending(true);
     const { reportRows, totals, daysInMonth } = getReportData();
     try {
       await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
@@ -63,7 +67,6 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
         total_late: String(totals.late),
         total_early: String(totals.early),
         total_off: String(totals.off),
-        total_unmarked: String(totals.unmarked),
         total_worked: String(totals.total),
         days_in_month: String(daysInMonth),
         employee_count: String(employees.length),
@@ -114,17 +117,32 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
 
         {/* Summary Preview */}
         <div className="grid grid-cols-5 gap-3 mb-5 max-md:grid-cols-3 max-sm:grid-cols-2">
-          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-green-500"><span className="block text-xs text-slate-500 mb-1">✓ Present</span><strong className="text-2xl text-slate-800">{totals.present}</strong></div>
-          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-amber-500"><span className="block text-xs text-slate-500 mb-1">⏰ Late</span><strong className="text-2xl text-slate-800">{totals.late}</strong></div>
-          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-purple-500"><span className="block text-xs text-slate-500 mb-1">🚪 Early</span><strong className="text-2xl text-slate-800">{totals.early}</strong></div>
-          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-red-500"><span className="block text-xs text-slate-500 mb-1">✗ Absent</span><strong className="text-2xl text-slate-800">{totals.absent}</strong></div>
-          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300"><span className="block text-xs text-slate-500 mb-1">📋 Off Duty</span><strong className="text-2xl text-slate-800">{totals.off}</strong></div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-green-500">
+            <span className="block text-xs text-slate-500 mb-1">✓ Present</span>
+            <strong className="text-2xl text-slate-800">{totals.present}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-amber-500">
+            <span className="block text-xs text-slate-500 mb-1">⏰ Late</span>
+            <strong className="text-2xl text-slate-800">{totals.late}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-purple-500">
+            <span className="block text-xs text-slate-500 mb-1">🚪 Early</span>
+            <strong className="text-2xl text-slate-800">{totals.early}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-red-500">
+            <span className="block text-xs text-slate-500 mb-1">✗ Absent</span>
+            <strong className="text-2xl text-slate-800">{totals.absent}</strong>
+          </div>
+          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-500">
+            <span className="block text-xs text-slate-500 mb-1">📋 Off Duty</span>
+            <strong className="text-2xl text-slate-800">{totals.off}</strong>
+          </div>
         </div>
 
         <form onSubmit={handleSend}>
           <div className="mb-4">
             <label className="block text-sm font-semibold text-slate-600 mb-1.5">Recipient Email</label>
-            <input type="email" placeholder="Enter recipient's email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} required className="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm bg-slate-50 text-slate-800 outline-none focus:border-blue-500" />
+            <input type="email" placeholder='Enter recipient Email' value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} required className="w-full py-2.5 px-3.5 border border-slate-300 rounded-xl text-sm bg-slate-50 text-slate-800 outline-none focus:border-blue-500" />
           </div>
           {error && <p className="text-red-600 text-sm text-center mb-3 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
           {success && <p className="text-green-600 text-sm text-center mb-3 bg-green-50 px-3 py-2 rounded-lg">{success}</p>}

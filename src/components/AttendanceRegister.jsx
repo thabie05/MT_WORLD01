@@ -78,16 +78,34 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   }, []);
 
   // Save data to Firestore
-  useEffect(() => {
-    if (loading) return;
-    const saveData = async () => {
-      try {
-        const docRef = doc(db, 'rollcall', 'data');
-        await setDoc(docRef, { employees, attendance, edits, history, notes }, { merge: true });
-      } catch (err) { console.error('Failed to save data:', err); }
-    };
-    saveData();
-  }, [employees, attendance, edits, history, notes, loading]);
+useEffect(() => {
+  if (loading) return;
+  
+  // ONLY save if there's actual data
+  if (!employees || employees.length === 0) {
+    console.warn('⚠️ Skipped save: No employees data');
+    return;
+  }
+  
+  const saveData = async () => {
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      await setDoc(docRef, { 
+        employees, 
+        attendance, 
+        edits, 
+        history, 
+        notes,
+        _lastSaved: new Date().toISOString(),
+        _savedBy: currentUser?.fullName || 'Unknown'
+      }, { merge: true });
+      console.log('✅ Data saved by:', currentUser?.fullName);
+    } catch (err) { 
+      console.error('❌ Failed to save data:', err); 
+    }
+  };
+  saveData();
+}, [employees, attendance, edits, history, notes, loading]);
 
   // Close popup on outside click
   useEffect(() => {
