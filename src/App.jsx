@@ -5,7 +5,11 @@ import AttendanceRegister from './components/AttendanceRegister';
 function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('mtworld_current_user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      try { return JSON.parse(saved); }
+      catch { return null; }
+    }
+    return null;
   });
 
   const logoutTimerRef = useRef(null);
@@ -33,15 +37,12 @@ function App() {
   }, [currentUser]);
 
   const handleLogin = (user) => {
-  setCurrentUser(user);
-  
-  // Only save to localStorage if "Remember Me" is checked
-  if (user.rememberMe) {
-    localStorage.setItem('mtworld_current_user', JSON.stringify(user));
-  } else {
-    localStorage.removeItem('mtworld_current_user');
-  }
-};
+    setCurrentUser(user);
+    // Only save if Remember Me is checked
+    if (user.rememberMe) {
+      localStorage.setItem('mtworld_current_user', JSON.stringify(user));
+    }
+  };
 
   const handleLogout = () => {
     setCurrentUser(null);
