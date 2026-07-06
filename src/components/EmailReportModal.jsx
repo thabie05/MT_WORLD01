@@ -43,8 +43,10 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
   const getReportData = () => {
     const dateRange = getDateRangeArray();
     
-    // Sort employees alphabetically A‑Z before building rows
-    const sortedEmployees = [...employees].sort((a, b) =>
+    // Exclude deleted employees
+    const activeEmployees = employees.filter(emp => !emp.deletedAt);
+
+    const sortedEmployees = [...activeEmployees].sort((a, b) =>
       a.name.toLowerCase().localeCompare(b.name.toLowerCase())
     );
 
@@ -70,7 +72,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
       total: acc.total + row.total,
     }), { present: 0, absent: 0, late: 0, early: 0, off: 0, total: 0 });
     
-    return { reportRows, totals, daysInRange: dateRange.length };
+    return { reportRows, totals, daysInRange: dateRange.length, activeEmployeeCount: activeEmployees.length };
   };
 
   const buildEmailTable = (reportRows) => {
@@ -84,7 +86,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
 
   // PDF download function – beautiful styled report
   const handleDownloadPDF = () => {
-    const { reportRows, totals, daysInRange } = getReportData();
+    const { reportRows, totals, daysInRange, activeEmployeeCount } = getReportData();
     const startDisplay = formatDateDisplay(startDate);
     const endDisplay = formatDateDisplay(endDate);
 
@@ -125,7 +127,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
             <h1 style="font-size:24px;font-weight:700;">MT WORLD Attendance Report</h1>
             <div style="margin-top:12px;color:#cbd5e1;">
               <p><span style="font-weight:600;color:#fff;">Period:</span> ${startDisplay} – ${endDisplay} (${daysInRange} calendar days)</p>
-              <p><span style="font-weight:600;color:#fff;">Total Employees:</span> ${employees.length}</p>
+              <p><span style="font-weight:600;color:#fff;">Total Employees:</span> ${activeEmployeeCount}</p>
             </div>
           </div>
 
@@ -202,7 +204,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
     setError('');
     setSuccess('');
     setSending(true);
-    const { reportRows, totals, daysInRange } = getReportData();
+    const { reportRows, totals, daysInRange, activeEmployeeCount } = getReportData();
     const startDisplay = formatDateDisplay(startDate);
     const endDisplay = formatDateDisplay(endDate);
     try {
@@ -219,7 +221,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
         total_off: String(totals.off),
         total_worked: String(totals.total),
         days_in_period: String(daysInRange),
-        employee_count: String(employees.length),
+        employee_count: String(activeEmployeeCount),
       }, EMAILJS_PUBLIC_KEY);
       setSuccess('Report sent successfully!');
       setTimeout(() => onClose(), 2000);
@@ -230,7 +232,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
     }
   };
 
-  const { reportRows, totals, daysInRange } = getReportData();
+  const { reportRows, totals, daysInRange, activeEmployeeCount } = getReportData();
   const startDisplay = formatDateDisplay(startDate);
   const endDisplay = formatDateDisplay(endDate);
 
