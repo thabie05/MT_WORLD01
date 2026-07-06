@@ -14,7 +14,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
   const totalOffDuty = report.reduce((s, m) => s + (m.OffDuty || 0), 0);
   const totalWeekend = report.reduce((s, m) => s + (m.Weekend || 0), 0);
   const totalHoliday = report.reduce((s, m) => s + (m.Holiday || 0), 0);
-  const totalUnmarked = report.reduce((s, m) => s + (m.Unmarked || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
@@ -50,10 +49,7 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
             <span className="block text-xs text-slate-500 mb-1">🎉 Holiday</span>
             <strong className="text-2xl text-slate-800">{totalHoliday}</strong>
           </div>
-          <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300">
-            <span className="block text-xs text-slate-500 mb-1">❓ Unmarked</span>
-            <strong className="text-2xl text-slate-800">{totalUnmarked}</strong>
-          </div>
+        
         </div>
 
         <div className="mb-5">
@@ -71,7 +67,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
               <Bar dataKey="OffDuty" fill="#94a3b8" stackId="a" />
               <Bar dataKey="Weekend" fill="#cbd5e1" stackId="a" />
               <Bar dataKey="Holiday" fill="#fbbf24" stackId="a" />
-              <Bar dataKey="Unmarked" fill="#e2e8f0" stackId="a" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -88,7 +83,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
                 <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Off Duty</th>
                 <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Weekend</th>
                 <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Holiday</th>
-                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Unmarked</th>
                 <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Total</th>
               </tr>
             </thead>
@@ -103,7 +97,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
                   <td className="py-2 px-3 border-b border-slate-200 text-slate-500">{m.OffDuty}</td>
                   <td className="py-2 px-3 border-b border-slate-200 text-slate-500">{m.Weekend}</td>
                   <td className="py-2 px-3 border-b border-slate-200 text-yellow-600">{m.Holiday}</td>
-                  <td className="py-2 px-3 border-b border-slate-200 text-slate-500">{m.Unmarked}</td>
                   <td className="py-2 px-3 border-b border-slate-200 text-slate-700">{new Date(year, monthNames.indexOf(m.month) + 1, 0).getDate()}</td>
                 </tr>
               ))}

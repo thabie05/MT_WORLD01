@@ -3,7 +3,16 @@ import React from 'react';
 function HistoryModal({ history, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+        
+        {/* ── Exit button (top right) ── */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl leading-none"
+        >
+          &times;
+        </button>
+
         <h2 className="text-xl font-bold text-slate-900 mb-4">Attendance Edit History</h2>
         
         {history.length === 0 ? (

@@ -34,6 +34,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [highlightedDay, setHighlightedDay] = useState(null);
   const [highlightedColumn, setHighlightedColumn] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -255,31 +256,107 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   };
 
   const addEmployee = async () => {
-    const name = newEmployeeName.trim();
-    if (name === '') return;
-    const isDuplicate = employees.some((emp) => emp.name.toLowerCase() === name.toLowerCase());
-    if (isDuplicate) { setAddError('This employee already exists!'); setTimeout(() => setAddError(''), 3000); return; }
-    setAddError('');
-    const newEmployee = { id: Date.now().toString(), name };
-    const updatedEmployees = [...employees, newEmployee];
-    setEmployees(updatedEmployees);
-    setNewEmployeeName('');
-    try {
-      const docRef = doc(db, 'rollcall', 'data');
-      await updateDoc(docRef, { employees: updatedEmployees });
-    } catch (err) { console.error('Failed to save new employee:', err); }
-  };
+  if (!isAdmin) return;   // ← only admins can add
+
+  const name = newEmployeeName.trim();
+  if (name === '') return;
+  const isDuplicate = employees.some((emp) => emp.name.toLowerCase() === name.toLowerCase());
+  if (isDuplicate) { setAddError('This employee already exists!'); setTimeout(() => setAddError(''), 3000); return; }
+  setAddError('');
+  const newEmployee = { id: Date.now().toString(), name };
+  const updatedEmployees = [...employees, newEmployee];
+  setEmployees(updatedEmployees);
+  setNewEmployeeName('');
+  try {
+    const docRef = doc(db, 'rollcall', 'data');
+    await updateDoc(docRef, { employees: updatedEmployees });
+  } catch (err) { console.error('Failed to save new employee:', err); }
+};
 
   const deleteEmployee = async (id) => {
-    if (!isAdmin) return;
-    const updatedEmployees = employees.filter((emp) => emp.id !== id);
-    setEmployees(updatedEmployees);
-    setAttendance((prev) => { const updated = { ...prev }; delete updated[id]; return updated; });
-    try {
-      const docRef = doc(db, 'rollcall', 'data');
-      await updateDoc(docRef, { employees: updatedEmployees, [`attendance.${id}`]: deleteField() });
-    } catch (err) { console.error('Failed to save after delete:', err); }
-  };
+  if (!isAdmin) return;
+  const updatedEmployees = employees.map((emp) =>
+    emp.id === id ? { ...emp, deletedAt: new Date().toISOString() } : emp
+  );
+  setEmployees(updatedEmployees);
+  try {
+    const docRef = doc(db, 'rollcall', 'data');
+    await updateDoc(docRef, { employees: updatedEmployees });
+  } catch (err) { console.error('Failed to soft-delete employee:', err); }
+};
+
+const restoreEmployee = async (id) => {
+  if (!isAdmin) return;
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const employee = employees.find((emp) => emp.id === id);
+  if (!employee || !employee.deletedAt) return;
+  
+  // Prevent restore if deleted more than 6 months ago
+  if (new Date(employee.deletedAt) < sixMonthsAgo) {
+    alert('Cannot restore – employee was deleted more than 6 months ago.');
+    return;
+  }
+
+  const updatedEmployees = employees.map((emp) =>
+    emp.id === id ? { ...emp, deletedAt: null } : emp
+  );
+  setEmployees(updatedEmployees);
+  try {
+    const docRef = doc(db, 'rollcall', 'data');
+    await updateDoc(docRef, { employees: updatedEmployees });
+  } catch (err) { console.error('Failed to restore employee:', err); }
+};
+
+const permanentlyDeleteEmployee = (id) => {
+  if (!isAdmin) return;
+  const employee = employees.find((emp) => emp.id === id);
+  if (!employee) return;
+
+  setConfirmModal({
+    message: `PERMANENTLY delete "${employee.name}" and ALL their attendance data? This CANNOT be undone.`,
+    onConfirm: async () => {
+      // Remove from local employees array
+      const updatedEmployees = employees.filter((emp) => emp.id !== id);
+      setEmployees(updatedEmployees);
+
+      // Remove attendance for this employee
+      setAttendance((prev) => { const updated = { ...prev }; delete updated[id]; return updated; });
+
+      // Remove edit counts for this employee
+      setEdits((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((key) => { if (key.startsWith(`${id}-`)) delete updated[key]; });
+        return updated;
+      });
+
+      // Remove notes for this employee
+      setNotes((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((key) => { if (key.startsWith(`${id}-`)) delete updated[key]; });
+        return updated;
+      });
+
+      // Persist to Firestore
+      try {
+        const docRef = doc(db, 'rollcall', 'data');
+        const updates = {
+          employees: updatedEmployees,
+          [`attendance.${id}`]: deleteField(),
+        };
+        Object.keys(edits).forEach((key) => { if (key.startsWith(`${id}-`)) updates[`edits.${key}`] = deleteField(); });
+        Object.keys(notes).forEach((key) => { if (key.startsWith(`${id}-`)) updates[`notes.${key}`] = deleteField(); });
+        await updateDoc(docRef, updates);
+      } catch (err) { console.error('Failed to permanently delete employee:', err); }
+
+      setConfirmModal(null);
+    }
+  });
+};
+
+const activeEmployees = employees.filter((emp) => !emp.deletedAt);
+const deletedEmployees = employees.filter((emp) => emp.deletedAt);
 
   const startEditEmployee = (emp) => {
     if (!isAdmin) return;
@@ -338,7 +415,12 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     else setSelectedEmployee(emp);
   };
 
-  const getSortedEmployees = () => [...employees].sort((a, b) => sortOrder === 'asc' ? a.name.toLowerCase().localeCompare(b.name.toLowerCase()) : b.name.toLowerCase().localeCompare(a.name.toLowerCase()));
+  const getSortedEmployees = () =>
+  [...activeEmployees].sort((a, b) =>
+    sortOrder === 'asc'
+      ? a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      : b.name.toLowerCase().localeCompare(a.name.toLowerCase())
+  );
   const toggleSort = () => setSortOrder((prev) => prev === 'asc' ? 'desc' : 'asc');
 
   const backupData = () => {
@@ -385,30 +467,30 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   };
 
   const calculateStats = () => {
-    let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, offCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
-    for (const emp of employees) {
-      for (const day of daysArray) {
-        if (isWeekend(day)) weekendCount++;
-        else if (isHoliday(day)) holidayCount++;
-        else if (isPresent(emp.id, day)) presentCount++;
-        else if (isLate(emp.id, day)) lateCount++;
-        else if (isEarly(emp.id, day)) earlyCount++;
-        else if (isOff(emp.id, day)) offCount++;
-        else if (isAbsent(emp.id, day)) absentCount++;
-        else blankCount++;
-      }
+  let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0,
+      offCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
+  for (const emp of employees) {
+    for (const day of daysArray) {
+      if (isWeekend(day)) weekendCount++;
+      else if (isHoliday(day)) holidayCount++;
+      else if (isPresent(emp.id, day)) presentCount++;
+      else if (isLate(emp.id, day)) lateCount++;
+      else if (isEarly(emp.id, day)) earlyCount++;
+      else if (isOff(emp.id, day)) offCount++;
+      else if (isAbsent(emp.id, day)) absentCount++;
+      else blankCount++;   // we still count blank internally, but won't display it
     }
-    return [
-      { name: 'Present', value: presentCount, color: '#22c55e' },
-      { name: 'Late', value: lateCount, color: '#f59e0b' },
-      { name: 'Early Leave', value: earlyCount, color: '#8b5cf6' },
-      { name: 'Absent', value: absentCount, color: '#ef4444' },
-      { name: 'Off Duty', value: offCount, color: '#94a3b8' },
-      { name: 'Weekend', value: weekendCount, color: '#cbd5e1' },
-      { name: 'Holiday', value: holidayCount, color: '#fbbf24' },
-      { name: 'Unmarked', value: blankCount, color: '#e2e8f0' },
-    ].filter((d) => d.value > 0);
-  };
+  }
+  return [
+    { name: 'Present',       value: presentCount, color: '#22c55e' },
+    { name: 'Late',          value: lateCount,    color: '#f59e0b' },
+    { name: 'Early Leave',   value: earlyCount,   color: '#8b5cf6' },
+    { name: 'Absent',        value: absentCount,  color: '#ef4444' },
+    { name: 'Off Duty',      value: offCount,     color: '#94a3b8' },
+    { name: 'Weekend',       value: weekendCount, color: '#cbd5e1' },
+    { name: 'Holiday',       value: holidayCount, color: '#fbbf24' },
+  ].filter((d) => d.value > 0);
+};
 
   const getEmployeeReport = (empId) => {
     const months = [];
@@ -427,9 +509,8 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         else if (attendance[empId]?.[dateKey] === 'early') early++;
         else if (attendance[empId]?.[dateKey] === 'off') off++;
         else if (attendance[empId]?.[dateKey] === 'absent') absent++;
-        else unmarked++;
       }
-      months.push({ month: monthNames[m], Present: present, Late: late, Early: early, Absent: absent, OffDuty: off, Weekend: weekend, Holiday: holiday, Unmarked: unmarked });
+      months.push({ month: monthNames[m], Present: present, Late: late, Early: early, Absent: absent, OffDuty: off, Weekend: weekend, Holiday: holiday });
     }
     return months;
   };
@@ -467,6 +548,14 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
             <button onClick={() => setShowEmailModal(true)} className="bg-emerald-600 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-emerald-700 transition">📧 Email</button>
             <button onClick={toggleSort} className="bg-slate-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-slate-600 transition min-w-[70px]">{sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}</button>
             {isAdmin && (
+  <button
+    onClick={() => setShowDeleted(!showDeleted)}
+    className="bg-slate-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-slate-600 transition"
+  >
+    {showDeleted ? 'Hide Deleted' : '🗑️ Deleted'}
+  </button>
+)}
+            {isAdmin && (
               <button onClick={backupData} className="bg-amber-500 text-white py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-amber-600 transition" title="Download backup">💾 Backup</button>
             )}
             {isAdmin && (
@@ -475,10 +564,12 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 <input type="file" accept=".json" onChange={restoreData} className="hidden" />
               </label>
             )}
-            <div className="flex gap-2">
-              <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} className="py-2 px-3 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition" />
-              <button onClick={addEmployee} className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium text-sm hover:bg-green-700 transition">+ Add</button>
-            </div>
+            {isAdmin && (
+  <div className="flex gap-2">
+    <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} className="py-2 px-3 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition" />
+    <button onClick={addEmployee} className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium text-sm hover:bg-green-700 transition">+ Add</button>
+  </div>
+)}
           </div>
         </div>
         {addError && <p className="text-red-600 text-xs mb-3 font-medium">{addError}</p>}
@@ -605,6 +696,54 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           </div>
         )}
 
+        {isAdmin && showDeleted && (
+  <div className="mt-6 border border-slate-200 rounded-xl p-4">
+    <h3 className="text-lg font-bold text-slate-800 mb-3">🗑️ Deleted Employees</h3>
+    {deletedEmployees.length === 0 ? (
+      <p className="text-slate-500 text-sm">No deleted employees.</p>
+    ) : (
+      <div className="space-y-2">
+        {deletedEmployees.map((emp) => {
+          const deletedDate = new Date(emp.deletedAt);
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          const canRestore = deletedDate >= sixMonthsAgo;
+
+          return (
+            <div key={emp.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+              <div>
+                <span className="font-medium text-slate-800">{emp.name}</span>
+                <span className="ml-3 text-xs text-slate-500">
+                  Deleted: {deletedDate.toLocaleDateString()}
+                </span>
+                {!canRestore && (
+                  <span className="ml-2 text-xs text-red-500">(permanently deleted)</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {canRestore && (
+                  <button
+                    onClick={() => restoreEmployee(emp.id)}
+                    className="py-1.5 px-3 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition"
+                  >
+                    ↩️ Restore
+                  </button>
+                )}
+                <button
+                  onClick={() => permanentlyDeleteEmployee(emp.id)}
+                  className="py-1.5 px-3 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition"
+                >
+                  🗑️ Delete Forever
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+)}
+
         {/* ========== FOOTER ========== */}
         <footer className="text-center mt-5 text-slate-500 text-sm">
           <p>Click a blank cell to mark attendance. Options: Present, Absent, Late, or Early Leave (with optional note). Locked after two edits.</p>
@@ -622,7 +761,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           onDelete={() => {
             setContextMenu(null);
             setConfirmModal({
-              message: `Delete "${contextMenu.employee.name}" and all their attendance data? This cannot be undone.`,
+              message: `Move "${contextMenu.employee.name}" from the register to Deleted Employees? They can be restored within 6 months from Deleted Employees.`,
               onConfirm: () => {
                 deleteEmployee(contextMenu.employee.id);
                 setConfirmModal(null);
