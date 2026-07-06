@@ -10,19 +10,34 @@ function StatsPage({ stats, currentMonth, currentYear, onClose }) {
           <h2 className="text-xl font-bold text-slate-900">📊 Attendance Statistics</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
         </div>
-        
         <p className="text-slate-500 text-sm mb-4">{monthNames[currentMonth]} {currentYear}</p>
         
         <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 mb-5">
-          <ResponsiveContainer width="100%" height={350}>
+          <ResponsiveContainer width="100%" height={400}>
             <PieChart>
-              <Pie data={stats} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, value }) => `${name}: ${value}`}>
+              <Pie 
+                data={stats} 
+                dataKey="value" 
+                nameKey="name" 
+                cx="50%" 
+                cy="50%" 
+                outerRadius={120}
+                innerRadius={0}
+                paddingAngle={5}
+                label={({ name, value }) => `${name}: ${value}`}
+                labelLine={true}
+              >
                 {stats.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                  <Cell key={`cell-${index}`} fill={entry.color} stroke="#fff" strokeWidth={2} />
                 ))}
               </Pie>
               <Tooltip />
-              <Legend />
+              <Legend 
+                layout="horizontal" 
+                verticalAlign="bottom" 
+                align="center"
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>

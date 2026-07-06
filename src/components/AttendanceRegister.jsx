@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteField, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getSAHolidays, monthNames } from '../utils/holidays';
 import PasswordChangeModal from './PasswordChangeModal';
@@ -69,7 +69,17 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           setHistory(data.history || []);
           setNotes(data.notes || {});
         } else {
-          setEmployees([{ id: '1', name: 'John Doe' }, { id: '2', name: 'Jane Smith' }]);
+          // Document doesn't exist yet — create it once so future updates
+          // (which use updateDoc) have something to attach to.
+          const initialEmployees = [{ id: '1', name: 'John Doe' }, { id: '2', name: 'Jane Smith' }];
+          setEmployees(initialEmployees);
+          await setDoc(docRef, {
+            employees: initialEmployees,
+            attendance: {},
+            edits: {},
+            history: [],
+            notes: {},
+          });
         }
       } catch (err) { console.error('Failed to load data:', err); }
       finally { setLoading(false); }
@@ -77,35 +87,12 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     fetchData();
   }, []);
 
-  // Save data to Firestore
-useEffect(() => {
-  if (loading) return;
-  
-  // ONLY save if there's actual data
-  if (!employees || employees.length === 0) {
-    console.warn('⚠️ Skipped save: No employees data');
-    return;
-  }
-  
-  const saveData = async () => {
-    try {
-      const docRef = doc(db, 'rollcall', 'data');
-      await setDoc(docRef, { 
-        employees, 
-        attendance, 
-        edits, 
-        history, 
-        notes,
-        _lastSaved: new Date().toISOString(),
-        _savedBy: currentUser?.fullName || 'Unknown'
-      }, { merge: true });
-      console.log('✅ Data saved by:', currentUser?.fullName);
-    } catch (err) { 
-      console.error('❌ Failed to save data:', err); 
-    }
-  };
-  saveData();
-}, [employees, attendance, edits, history, notes, loading]);
+  // NOTE: There is intentionally no "save everything on every change" effect
+  // here anymore. Writing the entire employees/attendance/edits/history/notes
+  // object on every keystroke meant that whichever user saved last would
+  // silently overwrite every other user's concurrent changes. Instead, each
+  // mutation below writes only the specific field(s) it touched, using
+  // Firestore dot-notation updates (see markAttendance, clearAttendance, etc).
 
   // Close popup on outside click
   useEffect(() => {
@@ -141,41 +128,95 @@ useEffect(() => {
     return getSAHolidays(currentYear).some((h) => h.date === dateKey);
   };
 
-  const markAttendance = (employeeId, day, status, noteText = '') => {
+  const markAttendance = async (employeeId, day, status, noteText = '') => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    setEdits((prev) => { const current = prev[`${employeeId}-${dateKey}`]; const count = typeof current === 'number' ? current : current ? 1 : 0; return { ...prev, [`${employeeId}-${dateKey}`]: count + 1 }; });
-    setAttendance((prev) => { const updated = { ...prev }; const empAttendance = { ...(updated[employeeId] || {}) }; empAttendance[dateKey] = status; if (Object.keys(empAttendance).length === 0) delete updated[employeeId]; else updated[employeeId] = empAttendance; return updated; });
-    if (noteText.trim()) setNotes((prev) => ({ ...prev, [`${employeeId}-${dateKey}`]: noteText.trim() }));
+    const currentEditVal = edits[`${employeeId}-${dateKey}`];
+    const currentCount = typeof currentEditVal === 'number' ? currentEditVal : currentEditVal ? 1 : 0;
+    const newCount = currentCount + 1;
+    const trimmedNote = noteText.trim();
     const employee = employees.find((emp) => emp.id === employeeId);
     const statusLabel = status === 'present' ? 'Present' : status === 'absent' ? 'Absent' : status === 'late' ? 'Late' : status === 'early' ? 'Early' : 'Off Duty';
-    setHistory((prev) => [{ id: Date.now(), employeeId, employeeName: employee?.name || 'Unknown', day, date: dateKey, status: statusLabel, note: noteText.trim() || '', editor: currentUser.fullName, editedAt: new Date().toISOString() }, ...prev]);
+    const historyEntry = {
+      id: Date.now(),
+      employeeId,
+      employeeName: employee?.name || 'Unknown',
+      day,
+      date: dateKey,
+      status: statusLabel,
+      note: trimmedNote || '',
+      editor: currentUser.fullName,
+      editedAt: new Date().toISOString(),
+    };
+
+    // Update local state immediately for a responsive UI
+    setEdits((prev) => ({ ...prev, [`${employeeId}-${dateKey}`]: newCount }));
+    setAttendance((prev) => {
+      const updated = { ...prev };
+      const empAttendance = { ...(updated[employeeId] || {}) };
+      empAttendance[dateKey] = status;
+      updated[employeeId] = empAttendance;
+      return updated;
+    });
+    if (trimmedNote) setNotes((prev) => ({ ...prev, [`${employeeId}-${dateKey}`]: trimmedNote }));
+    setHistory((prev) => [historyEntry, ...prev]);
     setPopup(null);
     setPopupNote('');
+
+    // Persist ONLY the fields that changed. Using dot-notation keys means
+    // Firestore merges at the leaf level, so concurrent edits from other
+    // users to other cells are not overwritten.
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      const updates = {
+        [`attendance.${employeeId}.${dateKey}`]: status,
+        [`edits.${employeeId}-${dateKey}`]: newCount,
+        history: arrayUnion(historyEntry),
+      };
+      if (trimmedNote) updates[`notes.${employeeId}-${dateKey}`] = trimmedNote;
+      await updateDoc(docRef, updates);
+    } catch (err) { console.error('Failed to save attendance mark:', err); }
   };
 
   const clearAttendance = async (employeeId, day) => {
     const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    let updatedAttendance = { ...attendance };
-    if (updatedAttendance[employeeId]) {
-      delete updatedAttendance[employeeId][dateKey];
-      if (Object.keys(updatedAttendance[employeeId]).length === 0) delete updatedAttendance[employeeId];
-    }
-    let updatedNotes = { ...notes };
-    delete updatedNotes[`${employeeId}-${dateKey}`];
-    let updatedEdits = { ...edits };
-    delete updatedEdits[`${employeeId}-${dateKey}`];
-    setAttendance(updatedAttendance);
-    setNotes(updatedNotes);
-    setEdits(updatedEdits);
     const employee = employees.find((emp) => emp.id === employeeId);
-    const updatedHistory = [{ id: Date.now(), employeeId, employeeName: employee?.name || 'Unknown', day, date: dateKey, status: 'Cleared', note: '', editor: currentUser.fullName, editedAt: new Date().toISOString() }, ...history];
-    setHistory(updatedHistory);
-    try {
-      const docRef = doc(db, 'rollcall', 'data');
-      await setDoc(docRef, { employees, attendance: updatedAttendance, edits: updatedEdits, history: updatedHistory, notes: updatedNotes });
-    } catch (err) { console.error('Failed to save after clear:', err); }
+    const historyEntry = {
+      id: Date.now(),
+      employeeId,
+      employeeName: employee?.name || 'Unknown',
+      day,
+      date: dateKey,
+      status: 'Cleared',
+      note: '',
+      editor: currentUser.fullName,
+      editedAt: new Date().toISOString(),
+    };
+
+    setAttendance((prev) => {
+      const updated = { ...prev };
+      if (updated[employeeId]) {
+        const empAttendance = { ...updated[employeeId] };
+        delete empAttendance[dateKey];
+        if (Object.keys(empAttendance).length === 0) delete updated[employeeId];
+        else updated[employeeId] = empAttendance;
+      }
+      return updated;
+    });
+    setNotes((prev) => { const updated = { ...prev }; delete updated[`${employeeId}-${dateKey}`]; return updated; });
+    setEdits((prev) => { const updated = { ...prev }; delete updated[`${employeeId}-${dateKey}`]; return updated; });
+    setHistory((prev) => [historyEntry, ...prev]);
     setPopup(null);
     setPopupNote('');
+
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      await updateDoc(docRef, {
+        [`attendance.${employeeId}.${dateKey}`]: deleteField(),
+        [`notes.${employeeId}-${dateKey}`]: deleteField(),
+        [`edits.${employeeId}-${dateKey}`]: deleteField(),
+        history: arrayUnion(historyEntry),
+      });
+    } catch (err) { console.error('Failed to save after clear:', err); }
   };
 
   const getStatus = (employeeId, day) => {
@@ -213,20 +254,31 @@ useEffect(() => {
     return Object.keys(empAttendance).filter((key) => key.startsWith(monthPrefix) && (empAttendance[key] === 'present' || empAttendance[key] === 'late' || empAttendance[key] === 'early')).length;
   };
 
-  const addEmployee = () => {
+  const addEmployee = async () => {
     const name = newEmployeeName.trim();
     if (name === '') return;
     const isDuplicate = employees.some((emp) => emp.name.toLowerCase() === name.toLowerCase());
     if (isDuplicate) { setAddError('This employee already exists!'); setTimeout(() => setAddError(''), 3000); return; }
     setAddError('');
-    setEmployees((prev) => [...prev, { id: Date.now().toString(), name }]);
+    const newEmployee = { id: Date.now().toString(), name };
+    const updatedEmployees = [...employees, newEmployee];
+    setEmployees(updatedEmployees);
     setNewEmployeeName('');
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      await updateDoc(docRef, { employees: updatedEmployees });
+    } catch (err) { console.error('Failed to save new employee:', err); }
   };
 
-  const deleteEmployee = (id) => {
+  const deleteEmployee = async (id) => {
     if (!isAdmin) return;
-    setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+    const updatedEmployees = employees.filter((emp) => emp.id !== id);
+    setEmployees(updatedEmployees);
     setAttendance((prev) => { const updated = { ...prev }; delete updated[id]; return updated; });
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      await updateDoc(docRef, { employees: updatedEmployees, [`attendance.${id}`]: deleteField() });
+    } catch (err) { console.error('Failed to save after delete:', err); }
   };
 
   const startEditEmployee = (emp) => {
@@ -236,14 +288,22 @@ useEffect(() => {
     setEditEmployeeName(emp.name);
   };
 
-  const saveEditEmployee = () => {
-    if (!isAdmin || editEmployeeName.trim() === '') return;
+  const saveEditEmployee = async () => {
+    if (!isAdmin) return;
     const newName = editEmployeeName.trim();
+    // If the field was cleared, cancel the rename instead of leaving the
+    // input permanently stuck in edit mode with no way out.
+    if (newName === '') { setEditEmployeeId(null); setEditEmployeeName(''); return; }
     const isDuplicate = employees.some((emp) => emp.id !== editEmployeeId && emp.name.toLowerCase() === newName.toLowerCase());
     if (isDuplicate) { alert('An employee with this name already exists!'); return; }
-    setEmployees((prev) => prev.map((emp) => emp.id === editEmployeeId ? { ...emp, name: newName } : emp));
+    const updatedEmployees = employees.map((emp) => emp.id === editEmployeeId ? { ...emp, name: newName } : emp);
+    setEmployees(updatedEmployees);
     setEditEmployeeId(null);
     setEditEmployeeName('');
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      await updateDoc(docRef, { employees: updatedEmployees });
+    } catch (err) { console.error('Failed to save employee rename:', err); }
   };
 
   const handlePrevMonth = () => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear((prev) => prev - 1); } else setCurrentMonth((prev) => prev - 1); };
@@ -261,16 +321,16 @@ useEffect(() => {
   };
 
   const handleClearConfirm = (employeeId, day) => {
-  const employee = employees.find((emp) => emp.id === employeeId);
-  setPopup(null);
-  setConfirmModal({
-    message: `Clear the attendance mark for ${employee?.name || 'this employee'} on day ${day}? This cannot be undone.`,
-    onConfirm: () => {
-      clearAttendance(employeeId, day);
-      setConfirmModal(null);
-    }
-  });
-};
+    const employee = employees.find((emp) => emp.id === employeeId);
+    setPopup(null);
+    setConfirmModal({
+      message: `Clear the attendance mark for ${employee?.name || 'this employee'} on day ${day}? This cannot be undone.`,
+      onConfirm: () => {
+        clearAttendance(employeeId, day);
+        setConfirmModal(null);
+      }
+    });
+  };
 
   const handleEmployeeClick = (e, emp) => {
     e.stopPropagation();
@@ -293,83 +353,86 @@ useEffect(() => {
   };
 
   const restoreData = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  setConfirmModal({
-    message: 'This will replace ALL current data with the backup. Are you sure?',
-    onConfirm: () => {
-      setConfirmModal(null);
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const data = JSON.parse(event.target.result);
-          if (data.employees) setEmployees(data.employees);
-          if (data.attendance) setAttendance(data.attendance);
-          if (data.edits) setEdits(data.edits || {});
-          if (data.history) setHistory(data.history || []);
-          if (data.notes) setNotes(data.notes || {});
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setConfirmModal({
+      message: 'This will replace ALL current data with the backup. Are you sure?',
+      onConfirm: () => {
+        setConfirmModal(null);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
           try {
-            const docRef = doc(db, 'rollcall', 'data');
-            await setDoc(docRef, { employees: data.employees || [], attendance: data.attendance || {}, edits: data.edits || {}, history: data.history || [], notes: data.notes || {} });
-            alert('Backup restored successfully!');
-          } catch (err) { alert('Restored locally but failed to save to cloud.'); }
-        } catch (err) { alert('Invalid backup file.'); }
-      };
-      reader.readAsText(file);
-      e.target.value = '';
-    }
-  });
-};
+            const data = JSON.parse(event.target.result);
+            if (data.employees) setEmployees(data.employees);
+            if (data.attendance) setAttendance(data.attendance);
+            if (data.edits) setEdits(data.edits || {});
+            if (data.history) setHistory(data.history || []);
+            if (data.notes) setNotes(data.notes || {});
+            try {
+              // Restore is an explicit, deliberate full replace initiated by
+              // an admin, so a full-document overwrite here is intentional.
+              const docRef = doc(db, 'rollcall', 'data');
+              await setDoc(docRef, { employees: data.employees || [], attendance: data.attendance || {}, edits: data.edits || {}, history: data.history || [], notes: data.notes || {} });
+              alert('Backup restored successfully!');
+            } catch (err) { alert('Restored locally but failed to save to cloud.'); }
+          } catch (err) { alert('Invalid backup file.'); }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      }
+    });
+  };
 
   const calculateStats = () => {
-  let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, offCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
-  for (const emp of employees) {
-    for (const day of daysArray) {
-      if (isWeekend(day)) weekendCount++;
-      else if (isHoliday(day)) holidayCount++;
-      else if (isPresent(emp.id, day)) presentCount++;
-      else if (isLate(emp.id, day)) lateCount++;
-      else if (isEarly(emp.id, day)) earlyCount++;
-      else if (isOff(emp.id, day)) offCount++;
-      else if (isAbsent(emp.id, day)) absentCount++;
-      else blankCount++;
+    let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0, offCount = 0, weekendCount = 0, holidayCount = 0, blankCount = 0;
+    for (const emp of employees) {
+      for (const day of daysArray) {
+        if (isWeekend(day)) weekendCount++;
+        else if (isHoliday(day)) holidayCount++;
+        else if (isPresent(emp.id, day)) presentCount++;
+        else if (isLate(emp.id, day)) lateCount++;
+        else if (isEarly(emp.id, day)) earlyCount++;
+        else if (isOff(emp.id, day)) offCount++;
+        else if (isAbsent(emp.id, day)) absentCount++;
+        else blankCount++;
+      }
     }
-  }
-  return [
-    { name: 'Present', value: presentCount, color: '#22c55e' },
-    { name: 'Late', value: lateCount, color: '#f59e0b' },
-    { name: 'Early Leave', value: earlyCount, color: '#8b5cf6' },
-    { name: 'Absent', value: absentCount, color: '#ef4444' },
-    { name: 'Off Duty', value: offCount, color: '#94a3b8' },
-    { name: 'Weekend', value: weekendCount, color: '#cbd5e1' },
-    { name: 'Holiday', value: holidayCount, color: '#fbbf24' },
-    { name: 'Unmarked', value: blankCount, color: '#e2e8f0' },
-  ].filter((d) => d.value > 0);
-};
+    return [
+      { name: 'Present', value: presentCount, color: '#22c55e' },
+      { name: 'Late', value: lateCount, color: '#f59e0b' },
+      { name: 'Early Leave', value: earlyCount, color: '#8b5cf6' },
+      { name: 'Absent', value: absentCount, color: '#ef4444' },
+      { name: 'Off Duty', value: offCount, color: '#94a3b8' },
+      { name: 'Weekend', value: weekendCount, color: '#cbd5e1' },
+      { name: 'Holiday', value: holidayCount, color: '#fbbf24' },
+      { name: 'Unmarked', value: blankCount, color: '#e2e8f0' },
+    ].filter((d) => d.value > 0);
+  };
+
   const getEmployeeReport = (empId) => {
-  const months = [];
-  for (let m = 0; m < 12; m++) {
-    const daysInM = new Date(currentYear, m + 1, 0).getDate();
-    let present = 0, absent = 0, late = 0, early = 0, off = 0, weekend = 0, holiday = 0, unmarked = 0;
-    for (let d = 1; d <= daysInM; d++) {
-      const date = new Date(currentYear, m, d);
-      const dateKey = `${currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const dow = date.getDay();
-      const isH = getSAHolidays(currentYear).some((h) => h.date === dateKey);
-      if (dow === 0 || dow === 6) weekend++;
-      else if (isH) holiday++;
-      else if (attendance[empId]?.[dateKey] === 'present') present++;
-      else if (attendance[empId]?.[dateKey] === 'late') late++;
-      else if (attendance[empId]?.[dateKey] === 'early') early++;
-      else if (attendance[empId]?.[dateKey] === 'off') off++;
-      else if (attendance[empId]?.[dateKey] === 'absent') absent++;
-      else unmarked++;
+    const months = [];
+    for (let m = 0; m < 12; m++) {
+      const daysInM = new Date(currentYear, m + 1, 0).getDate();
+      let present = 0, absent = 0, late = 0, early = 0, off = 0, weekend = 0, holiday = 0, unmarked = 0;
+      for (let d = 1; d <= daysInM; d++) {
+        const date = new Date(currentYear, m, d);
+        const dateKey = `${currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dow = date.getDay();
+        const isH = getSAHolidays(currentYear).some((h) => h.date === dateKey);
+        if (dow === 0 || dow === 6) weekend++;
+        else if (isH) holiday++;
+        else if (attendance[empId]?.[dateKey] === 'present') present++;
+        else if (attendance[empId]?.[dateKey] === 'late') late++;
+        else if (attendance[empId]?.[dateKey] === 'early') early++;
+        else if (attendance[empId]?.[dateKey] === 'off') off++;
+        else if (attendance[empId]?.[dateKey] === 'absent') absent++;
+        else unmarked++;
+      }
+      months.push({ month: monthNames[m], Present: present, Late: late, Early: early, Absent: absent, OffDuty: off, Weekend: weekend, Holiday: holiday, Unmarked: unmarked });
     }
-    months.push({ month: monthNames[m], Present: present, Late: late, Early: early, Absent: absent, OffDuty: off, Weekend: weekend, Holiday: holiday, Unmarked: unmarked });
-  }
-  return months;
-};
+    return months;
+  };
 
   if (loading) return (
     <div className="flex justify-center items-center min-h-screen text-2xl text-indigo-900">Loading data…</div>
@@ -449,9 +512,9 @@ useEffect(() => {
                 {getSortedEmployees().map((emp, index) => {
                   const total = getTotalWorkedDays(emp.id);
                   const isHighlighted = highlightedEmployee === emp.id || (popup && popup.employeeId === emp.id);
-                  
+
                   return (
-                    <tr 
+                    <tr
                       key={emp.id}
                       className={`transition-colors duration-150 ${isHighlighted ? 'bg-blue-50' : ''}`}
                       onMouseEnter={() => setHighlightedEmployee(emp.id)}
@@ -549,14 +612,14 @@ useEffect(() => {
         </footer>
       </div>
 
-            {/* ========== MODALS ========== */}
+      {/* ========== MODALS ========== */}
       {showHistory && <HistoryModal history={history} onClose={() => setShowHistory(false)} />}
       {showPasswordModal && <PasswordChangeModal currentUser={currentUser} onClose={() => setShowPasswordModal(false)} onPasswordChanged={onPasswordChanged} />}
       {contextMenu && isAdmin && (
         <ContextMenu contextMenu={contextMenu} contextMenuRef={contextMenuRef}
           onViewReport={() => { setSelectedEmployee(contextMenu.employee); setContextMenu(null); }}
           onRename={() => startEditEmployee(contextMenu.employee)}
-          onDelete={() => { 
+          onDelete={() => {
             setContextMenu(null);
             setConfirmModal({
               message: `Delete "${contextMenu.employee.name}" and all their attendance data? This cannot be undone.`,
@@ -575,28 +638,27 @@ useEffect(() => {
       {showEmailModal && <EmailReportModal employees={employees} attendance={attendance} currentYear={currentYear} currentMonth={currentMonth} onClose={() => setShowEmailModal(false)} />}
       {showStatsPage && <StatsPage stats={calculateStats()} currentMonth={currentMonth} currentYear={currentYear} onClose={() => setShowStatsPage(false)} />}
       {confirmModal && (
-        <ConfirmModal 
+        <ConfirmModal
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
         />
       )}
-      <AttendancePopup 
-  popup={popup} 
-  popupNote={popupNote} 
-  setPopupNote={setPopupNote} 
-  popupRef={popupRef} 
-  onMark={markAttendance} 
-  onClear={clearAttendance} 
-  isAdmin={isAdmin}
-  onConfirmClear={handleClearConfirm}
-  isLocked={popup ? (() => { 
-    const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`; 
-    const currentEdits = edits[`${popup.employeeId}-${dateKey}`]; 
-    const editCount = typeof currentEdits === 'number' ? currentEdits : 0; 
-    return editCount >= 2; 
-  })() : false}
-/>
+      <AttendancePopup
+        popup={popup}
+        popupNote={popupNote}
+        setPopupNote={setPopupNote}
+        popupRef={popupRef}
+        onMark={markAttendance}
+        isAdmin={isAdmin}
+        onConfirmClear={handleClearConfirm}
+        isLocked={popup ? (() => {
+          const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`;
+          const currentEdits = edits[`${popup.employeeId}-${dateKey}`];
+          const editCount = typeof currentEdits === 'number' ? currentEdits : 0;
+          return editCount >= 2;
+        })() : false}
+      />
     </div>
   );
 }

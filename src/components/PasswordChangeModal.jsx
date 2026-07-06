@@ -18,24 +18,49 @@ function PasswordChangeModal({ currentUser, onClose, onPasswordChanged }) {
     setError('');
     setSuccess('');
 
-    const users = loadUsers();
-    const userIndex = users.findIndex((u) => u.username === currentUser.username);
-    if (userIndex === -1) { setError('User not found.'); return; }
-    if (users[userIndex].password !== currentPassword) { setError('Current password is incorrect.'); return; }
     if (newPassword.length < 4) { setError('New password must be at least 4 characters.'); return; }
     if (newPassword !== confirmPassword) { setError('New passwords do not match.'); return; }
 
     setSaving(true);
     try {
+      // -------------------------------------------------------
+      // 1. Fetch the latest user list from Firestore FIRST.
+      //    This prevents a stale local password from blocking
+      //    a legitimate change (the old bug #2).
+      // -------------------------------------------------------
+      let users;
+      try {
+        const docRef = doc(db, 'users', 'credentials');
+        const snap = await getDoc(docRef);
+        users = snap.exists() && snap.data().users ? snap.data().users : loadUsers();
+      } catch {
+        users = loadUsers(); // offline fallback
+      }
+
+      const userIndex = users.findIndex((u) => u.username === currentUser.username);
+      if (userIndex === -1) { setError('User not found.'); setSaving(false); return; }
+      if (users[userIndex].password !== currentPassword) { setError('Current password is incorrect.'); setSaving(false); return; }
+
+      // -------------------------------------------------------
+      // 2. Update the password in the (now up-to-date) array.
+      // -------------------------------------------------------
       users[userIndex].password = newPassword;
+
+      // -------------------------------------------------------
+      // 3. Persist to localStorage (always keep a local copy).
+      // -------------------------------------------------------
       localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+
+      // -------------------------------------------------------
+      // 4. Write the whole users array back to Firestore.
+      //    Because the credentials document is tiny and rarely
+      //    modified, a full overwrite is acceptable and simpler.
+      //    (We use merge: true to avoid deleting any extra fields
+      //    that might be added later.)
+      // -------------------------------------------------------
       const docRef = doc(db, 'users', 'credentials');
-      const snap = await getDoc(docRef);
-      let allUsers = snap.exists() ? snap.data().users || [] : [];
-      const cloudIndex = allUsers.findIndex((u) => u.username === currentUser.username);
-      if (cloudIndex !== -1) allUsers[cloudIndex].password = newPassword;
-      else allUsers.push(users[userIndex]);
-      await setDoc(docRef, { users: allUsers }, { merge: true });
+      await setDoc(docRef, { users }, { merge: true });
+
       setSuccess('Password changed successfully!');
       setTimeout(() => { onPasswordChanged(); onClose(); }, 1500);
     } catch (err) {
