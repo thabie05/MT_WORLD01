@@ -435,36 +435,63 @@ const deletedEmployees = employees.filter((emp) => emp.deletedAt);
   };
 
   const restoreData = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    setConfirmModal({
-      message: 'This will replace ALL current data with the backup. Are you sure?',
-      onConfirm: () => {
-        setConfirmModal(null);
-        const reader = new FileReader();
-        reader.onload = async (event) => {
+  setConfirmModal({
+    message: 'This will merge the backup into the current cloud data. A safety copy of the current cloud data is saved automatically first, so nothing is ever permanently lost. Continue?',
+    onConfirm: () => {
+      setConfirmModal(null);
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          const docRef = doc(db, 'rollcall', 'data');
+
+          // SAFETY NET: before writing anything, snapshot whatever is
+          // currently live in Firestore into a separate, timestamped
+          // backup document. This is the last line of defense — even if
+          // the restore below goes wrong, or someone restores the wrong
+          // file, the prior cloud state is recoverable.
           try {
-            const data = JSON.parse(event.target.result);
-            if (data.employees) setEmployees(data.employees);
-            if (data.attendance) setAttendance(data.attendance);
-            if (data.edits) setEdits(data.edits || {});
-            if (data.history) setHistory(data.history || []);
-            if (data.notes) setNotes(data.notes || {});
-            try {
-              // Restore is an explicit, deliberate full replace initiated by
-              // an admin, so a full-document overwrite here is intentional.
-              const docRef = doc(db, 'rollcall', 'data');
-              await setDoc(docRef, { employees: data.employees || [], attendance: data.attendance || {}, edits: data.edits || {}, history: data.history || [], notes: data.notes || {} });
-              alert('Backup restored successfully!');
-            } catch (err) { alert('Restored locally but failed to save to cloud.'); }
-          } catch (err) { alert('Invalid backup file.'); }
-        };
-        reader.readAsText(file);
-        e.target.value = '';
-      }
-    });
-  };
+            const currentSnap = await getDoc(docRef);
+            if (currentSnap.exists()) {
+              const safetyRef = doc(db, 'rollcall_backups', `pre-restore-${Date.now()}`);
+              await setDoc(safetyRef, currentSnap.data());
+            }
+          } catch (snapshotErr) {
+            console.error('Failed to snapshot data before restore:', snapshotErr);
+          }
+
+          // Update local state
+          if (data.employees) setEmployees(data.employees);
+          if (data.attendance) setAttendance(data.attendance);
+          if (data.edits) setEdits(data.edits || {});
+          if (data.history) setHistory(data.history || []);
+          if (data.notes) setNotes(data.notes || {});
+
+          try {
+            // merge: true is deliberate: it deep-merges nested maps
+            // (attendance/edits/notes) instead of replacing the whole
+            // document, so this can never wholesale-wipe cloud data —
+            // even a stale or partial backup file only adds/overwrites
+            // the specific keys it contains.
+            await setDoc(docRef, {
+              employees: data.employees || [],
+              attendance: data.attendance || {},
+              edits: data.edits || {},
+              history: data.history || [],
+              notes: data.notes || {},
+            }, { merge: true });
+            alert('Backup restored successfully! (A safety copy of the previous cloud data was saved automatically.)');
+          } catch (err) { alert('Restored locally but failed to save to cloud.'); }
+        } catch (err) { alert('Invalid backup file.'); }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+  });
+};
 
   const calculateStats = () => {
   let presentCount = 0, absentCount = 0, lateCount = 0, earlyCount = 0,

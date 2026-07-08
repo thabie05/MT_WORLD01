@@ -14,12 +14,13 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
   const totalOffDuty = report.reduce((s, m) => s + (m.OffDuty || 0), 0);
   const totalWeekend = report.reduce((s, m) => s + (m.Weekend || 0), 0);
   const totalHoliday = report.reduce((s, m) => s + (m.Holiday || 0), 0);
+  const totalUnmarked = report.reduce((s, m) => s + (m.Unmarked || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
       <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-slate-900 mb-4">📋 {employee.name} – {year} Attendance Report</h2>
-        
+
         <div className="grid grid-cols-4 gap-3 mb-5 max-md:grid-cols-4 max-sm:grid-cols-2">
           <div className="text-center py-3 px-2 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-green-500">
             <span className="block text-xs text-slate-500 mb-1">✓ Present</span>
@@ -49,7 +50,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
             <span className="block text-xs text-slate-500 mb-1">🎉 Holiday</span>
             <strong className="text-2xl text-slate-800">{totalHoliday}</strong>
           </div>
-        
         </div>
 
         <div className="mb-5">
@@ -83,7 +83,7 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
                 <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Off Duty</th>
                 <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Weekend</th>
                 <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Holiday</th>
-                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Total</th>
+                <th className="bg-slate-50 font-semibold py-2 px-3 text-left border-b border-slate-200 text-slate-700">Total Days Worked</th>
               </tr>
             </thead>
             <tbody>
@@ -97,7 +97,7 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
                   <td className="py-2 px-3 border-b border-slate-200 text-slate-500">{m.OffDuty}</td>
                   <td className="py-2 px-3 border-b border-slate-200 text-slate-500">{m.Weekend}</td>
                   <td className="py-2 px-3 border-b border-slate-200 text-yellow-600">{m.Holiday}</td>
-                  <td className="py-2 px-3 border-b border-slate-200 text-slate-700">{new Date(year, monthNames.indexOf(m.month) + 1, 0).getDate()}</td>
+                  <td className="py-2 px-3 border-b border-slate-200 text-slate-700 font-semibold">{m.Present + m.Late + m.Early}</td>
                 </tr>
               ))}
             </tbody>

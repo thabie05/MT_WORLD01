@@ -6,10 +6,34 @@ const EMAILJS_PUBLIC_KEY = 'gMdPl4OE4ZPnLepft';
 const EMAILJS_SERVICE_ID = 'service_4y1jslc';
 const EMAILJS_TEMPLATE_ID = 'template_s5kmikd';
 
+/* ------------------------------------------------------------------ */
+/*  Parse a "YYYY-MM-DD" string as a LOCAL date, not UTC.             */
+/*  new Date("2026-07-01") is UTC midnight and shifts the visible      */
+/*  day by one in many time zones. This helper keeps the custom        */
+/*  date‑range report consistent with the rest of the app.            */
+/* ------------------------------------------------------------------ */
+const parseLocalDate = (dateStr) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/* ------------------------------------------------------------------ */
+/*  Escape HTML characters so employee names don't break the report   */
+/*  or inject markup when inserted into the email / PDF preview.      */
+/* ------------------------------------------------------------------ */
+const escapeHtml = (str) =>
+  String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+
 function EmailReportModal({ employees, attendance, currentYear, currentMonth, onClose }) {
   const defaultStart = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
   const defaultEnd = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${new Date(currentYear, currentMonth + 1, 0).getDate()}`;
-  
+
   const [recipientEmail, setRecipientEmail] = useState('');
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(defaultEnd);
@@ -18,7 +42,6 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
 
-  // Helper to format a date string (YYYY-MM-DD) into a readable format
   const formatDateDisplay = (dateStr) => {
     const [y, m, d] = dateStr.split('-');
     return `${d} ${monthNames[parseInt(m) - 1]} ${y}`;
@@ -26,8 +49,8 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
 
   const getDateRangeArray = () => {
     const dates = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
     if (isNaN(start) || isNaN(end) || start > end) return dates;
     const current = new Date(start);
     while (current <= end) {
@@ -42,11 +65,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
 
   const getReportData = () => {
     const dateRange = getDateRangeArray();
-    
-    // Exclude deleted employees
-    const activeEmployees = employees.filter(emp => !emp.deletedAt);
-
-    const sortedEmployees = [...activeEmployees].sort((a, b) =>
+    const sortedEmployees = [...employees].sort((a, b) =>
       a.name.toLowerCase().localeCompare(b.name.toLowerCase())
     );
 
@@ -71,33 +90,31 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
       off: acc.off + row.off,
       total: acc.total + row.total,
     }), { present: 0, absent: 0, late: 0, early: 0, off: 0, total: 0 });
-    
-    return { reportRows, totals, daysInRange: dateRange.length, activeEmployeeCount: activeEmployees.length };
+
+    return { reportRows, totals, daysInRange: dateRange.length };
   };
 
   const buildEmailTable = (reportRows) => {
     let tableHTML = `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;"><thead style="background:#1e293b;color:white;"><tr><th>#</th><th>Employee</th><th>✓ Present</th><th>⏰ Late</th><th>🚪 Early</th><th>✗ Absent</th><th>📋 Off Duty</th><th>Days Worked</th></tr></thead><tbody>`;
     reportRows.forEach((row, i) => {
-      tableHTML += `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'};"><td style="text-align:center;">${i + 1}</td><td>${row.name}</td><td style="text-align:center;color:#22c55e;">${row.present}</td><td style="text-align:center;color:#f59e0b;">${row.late}</td><td style="text-align:center;color:#8b5cf6;">${row.early}</td><td style="text-align:center;color:#ef4444;">${row.absent}</td><td style="text-align:center;color:#94a3b8;">${row.off}</td><td style="text-align:center;font-weight:bold;">${row.total}</td></tr>`;
+      tableHTML += `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'};"><td style="text-align:center;">${i + 1}</td><td>${escapeHtml(row.name)}</td><td style="text-align:center;color:#22c55e;">${row.present}</td><td style="text-align:center;color:#f59e0b;">${row.late}</td><td style="text-align:center;color:#8b5cf6;">${row.early}</td><td style="text-align:center;color:#ef4444;">${row.absent}</td><td style="text-align:center;color:#94a3b8;">${row.off}</td><td style="text-align:center;font-weight:bold;">${row.total}</td></tr>`;
     });
     tableHTML += `</tbody></table>`;
     return tableHTML;
   };
 
-  // PDF download function – beautiful styled report
   const handleDownloadPDF = () => {
-    const { reportRows, totals, daysInRange, activeEmployeeCount } = getReportData();
+    const { reportRows, totals, daysInRange } = getReportData();
     const startDisplay = formatDateDisplay(startDate);
     const endDisplay = formatDateDisplay(endDate);
 
-    // Build table rows HTML
     let tableRowsHTML = '';
     reportRows.forEach((row, i) => {
       const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff';
       tableRowsHTML += `
         <tr style="background:${bg};">
           <td style="padding:12px;text-align:center;color:#6b7280;">${i + 1}</td>
-          <td style="padding:12px;font-weight:500;color:#1e293b;">${row.name}</td>
+          <td style="padding:12px;font-weight:500;color:#1e293b;">${escapeHtml(row.name)}</td>
           <td style="padding:12px;text-align:center;font-weight:500;color:${row.present > 0 ? '#16a34a' : '#9ca3af'};">${row.present}</td>
           <td style="padding:12px;text-align:center;font-weight:500;color:${row.late > 0 ? '#f97316' : '#9ca3af'};">${row.late}</td>
           <td style="padding:12px;text-align:center;font-weight:500;color:${row.early > 0 ? '#7c3aed' : '#9ca3af'};">${row.early}</td>
@@ -122,12 +139,13 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
       </head>
       <body>
         <div class="report-container">
-          <!-- Header -->
-          <div style="background:#0f172a;color:#fff;padding:24px 30px;">
+          <!-- Header with logo on the right -->
+          <div style="background:#0f172a;color:#fff;padding:24px 30px;position:relative;">
+            <img src="https://mtworldrollcall.web.app/logo.png" alt="MT WORLD Logo" style="position:absolute; top:24px; right:30px; max-height:60px;" />
             <h1 style="font-size:24px;font-weight:700;">MT WORLD Attendance Report</h1>
             <div style="margin-top:12px;color:#cbd5e1;">
               <p><span style="font-weight:600;color:#fff;">Period:</span> ${startDisplay} – ${endDisplay} (${daysInRange} calendar days)</p>
-              <p><span style="font-weight:600;color:#fff;">Total Employees:</span> ${activeEmployeeCount}</p>
+              <p><span style="font-weight:600;color:#fff;">Total Employees:</span> ${employees.length}</p>
             </div>
           </div>
 
@@ -204,7 +222,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
     setError('');
     setSuccess('');
     setSending(true);
-    const { reportRows, totals, daysInRange, activeEmployeeCount } = getReportData();
+    const { reportRows, totals, daysInRange } = getReportData();
     const startDisplay = formatDateDisplay(startDate);
     const endDisplay = formatDateDisplay(endDate);
     try {
@@ -221,7 +239,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
         total_off: String(totals.off),
         total_worked: String(totals.total),
         days_in_period: String(daysInRange),
-        employee_count: String(activeEmployeeCount),
+        employee_count: String(employees.length),
       }, EMAILJS_PUBLIC_KEY);
       setSuccess('Report sent successfully!');
       setTimeout(() => onClose(), 2000);
@@ -232,7 +250,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
     }
   };
 
-  const { reportRows, totals, daysInRange, activeEmployeeCount } = getReportData();
+  const { reportRows, totals, daysInRange } = getReportData();
   const startDisplay = formatDateDisplay(startDate);
   const endDisplay = formatDateDisplay(endDate);
 
@@ -306,7 +324,7 @@ function EmailReportModal({ employees, attendance, currentYear, currentMonth, on
           </button>
         </div>
 
-        {/* Preview Table – shows exactly what will be emailed */}
+        {/* Preview Table */}
         {showPreview && (
           <div className="mb-5 border border-slate-200 rounded-xl overflow-hidden">
             <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
