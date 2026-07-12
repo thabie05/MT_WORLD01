@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onDelete }) {
+function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onDelete, onEnrollFingerprint }) {
   if (!contextMenu) return null;
 
   return createPortal(
@@ -12,7 +12,12 @@ function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onDe
       <button onClick={onRename} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium cursor-pointer transition hover:bg-slate-100 text-slate-800 flex items-center gap-2">
         ✏️ Rename
       </button>
-      <button 
+      {onEnrollFingerprint && (
+        <button onClick={onEnrollFingerprint} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium cursor-pointer transition hover:bg-slate-100 text-slate-800 flex items-center gap-2">
+          🖐️ Enroll Fingerprint
+        </button>
+      )}
+      <button
         onClick={onDelete}
         className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium cursor-pointer transition hover:bg-red-50 text-red-600 flex items-center gap-2"
       >
