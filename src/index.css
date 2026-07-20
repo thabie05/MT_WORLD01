@@ -1,22 +1,138 @@
 @import "tailwindcss";
 
+/* ===== THEME VARIABLES ===== */
+:root {
+  /* Light Mode */
+  --bg-body: #F5F3EE;
+  --bg-card: #FFFFFF;
+  --bg-header: #FFFFFF;
+  --bg-input: #FFFFFF;
+  --bg-table-even: #F8FAFC;
+  --bg-highlight: #E4F3FA;        /* Light blue highlight */
+  --bg-highlight-text: #0F91CC;   /* Matches new accent */
+  --text-main: #1B1E24;
+  --text-muted: #5A5F6B;
+  --border: #E5E1D8;
+  --border-strong: #CBD5E1;
+  
+  /* BRAND COLORS */
+  --accent: #0F91CC;              /* Bright Logo Blue */
+  --accent-hover: #0C7AB3;
+  --accent-light: #E4F3FA;
+  --accent-dark: #00586E;         /* Dark Teal from 'ATTENDANCE' text */
+  
+  --button-text: #FFFFFF;         /* Text on accent buttons */
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  
+  --shadow-accent: rgba(15, 145, 204, 0.4);
+  --bg-accent-soft: rgba(15, 145, 204, 0.15);
+  
+  --accent-green: #5B9279;
+  --accent-green-hover: #4E8069;
+  --accent-red: #B2604A;
+  --accent-red-hover: #9E5340;
+  --bg-green-soft: rgba(91, 146, 121, 0.15);
+  --bg-red-soft: rgba(178, 96, 74, 0.15);
+  --stripe-color: rgba(0, 0, 0, 0.08);
+  --radial-glow: rgba(15, 145, 204, 0.06);
 
-/* Scrollbar styling */
-.overflow-x-auto::-webkit-scrollbar {
-  height: 6px;
-}
-.overflow-x-auto::-webkit-scrollbar-track {
-  @apply bg-transparent rounded;
-}
-.overflow-x-auto::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 dark:bg-slate-600 rounded;
+  /* ===== SOFTER STATUS COLORS (LIGHT) ===== */
+  --status-green-bg: #f0fdf4;      /* Extremely faint whisper-green */
+  --status-green-text: #15803d;    /* Dark forest green for readability */
+  --status-green-total: #16a34a;   /* Bright green for totals */
+  
+  --status-red-bg: #fecaca;        /* Bright light red */
+  --status-red-text: #b91c1c;      /* Dark red */
+  
+  --status-yellow-bg: #fef9c3;     /* Bright light yellow */
+  --status-yellow-text: #a16207;   /* Dark amber */
+  
+  --status-purple-bg: #e9d5ff;     /* Bright light purple */
+  --status-purple-text: #6b21a8;   /* Dark purple */
+  
+  --status-slate-bg: #e2e8f0;      /* Light grey */
+  --status-slate-text: #334155;    /* Dark grey */
+  
+  --status-weekend-bg: #cbd5e1;    /* Muted grey for weekends */
+  --status-holiday-bg: #fde047;    /* Bright yellow for holidays */
 }
 
-/* Sticky column shadows */
-.sticky {
-  box-shadow: 2px 0 5px -2px rgba(0,0,0,0.05);
+/* Dark Mode overrides */
+[data-theme="dark"] {
+  --bg-body: #1B1E24;
+  --bg-card: #20242C;
+  --bg-header: #20242C;
+  --bg-input: #1B1E24;
+  --bg-table-even: #1B1E24;
+  --bg-highlight: #1B3342;       
+  --bg-highlight-text: #4DB8E8;
+  --text-main: #EDEAE2;
+  --text-muted: #8D9099;
+  --border: #3A3F4B;
+  --border-strong: #3A3F4B;
+  
+  --accent: #4DB8E8;              /* Lighter blue for dark mode */
+  --accent-hover: #6BC5F0;
+  --accent-light: #1B3342;
+  --accent-dark: #0F91CC;
+  
+  --button-text: #1B1E24;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  
+  --shadow-accent: rgba(77, 184, 232, 0.4);
+  --bg-accent-soft: rgba(77, 184, 232, 0.2);
+  
+  --bg-green-soft: rgba(91, 146, 121, 0.2);
+  --bg-red-soft: rgba(178, 96, 74, 0.2);
+  --stripe-color: rgba(255, 255, 255, 0.08);
+  --radial-glow: rgba(77, 184, 232, 0.06);
+
+  /* ===== SOFTER STATUS COLORS (DARK) ===== */
+  --status-green-bg: rgba(34, 197, 94, 0.15); /* Reduced opacity for subtlety */
+  --status-green-text: #4ade80;
+  --status-green-total: #4ade80;
+
+  --status-red-bg: rgba(248, 113, 113, 0.25);
+  --status-red-text: #f87171;
+
+  --status-yellow-bg: rgba(251, 191, 36, 0.25);
+  --status-yellow-text: #facc15;
+
+  --status-purple-bg: rgba(168, 85, 247, 0.25);
+  --status-purple-text: #c084fc;
+
+  --status-slate-bg: rgba(148, 163, 184, 0.3);
+  --status-slate-text: #94a3b8;
+
+  --status-weekend-bg: #2E333F;
+  --status-holiday-bg: #3A3F4B;
 }
 
-tr {
-  transition: background-color 0.15s ease;
+/* ===== THEME UTILITY CLASSES ===== */
+.bg-body      { background-color: var(--bg-body); }
+.bg-card      { background-color: var(--bg-card); }
+.bg-header    { background-color: var(--bg-header); }
+.bg-input     { background-color: var(--bg-input); }
+.bg-table-even{ background-color: var(--bg-table-even); }
+.bg-highlight { background-color: var(--bg-highlight); }
+.text-highlight { color: var(--bg-highlight-text); }
+.text-main    { color: var(--text-main); }
+.text-muted   { color: var(--text-muted); }
+.border-main  { border-color: var(--border); }
+.border-strong{ border-color: var(--border-strong); }
+
+.text-accent  { color: var(--accent); }
+.text-accent-dark { color: var(--accent-dark); }
+.border-accent { border-color: var(--accent); }
+.bg-accent-light { background-color: var(--accent-light); }
+.bg-accent-soft { background-color: var(--bg-accent-soft); }
+
+.btn-accent { 
+  background-color: var(--accent); 
+  color: var(--button-text); 
 }
+.btn-accent:hover { 
+  background-color: var(--accent-hover); 
+}
+
+.shadow-theme { box-shadow: var(--shadow); }
