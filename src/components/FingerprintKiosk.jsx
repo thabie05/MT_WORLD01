@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { recordFingerprintAction } from '../utils/attendanceWrites';
 import EnrollFingerprintModal from './EnrollFingerprintModal';
@@ -92,12 +92,10 @@ function FingerprintKiosk() {
   const [now, setNow] = useState(new Date());
   const [stampPulse, setStampPulse] = useState(false);
 
-  // Employees and history
   const [employees, setEmployees] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [todayLogs, setTodayLogs] = useState([]);
 
-  // Quick‑add states
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
@@ -109,20 +107,17 @@ function FingerprintKiosk() {
   const employeesRef = useRef(employees);
   const selectedActionRef = useRef(null);
 
-  useEffect(() => {
-    employeesRef.current = employees;
-  }, [employees]);
-
-  useEffect(() => {
-    selectedActionRef.current = selectedAction;
-  }, [selectedAction]);
+  useEffect(() => { employeesRef.current = employees; }, [employees]);
+  useEffect(() => { selectedActionRef.current = selectedAction; }, [selectedAction]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Real‑time listener for employees and today's time logs
+  // Real-time listener for employees and today's time logs.
+  // NOTE: filters out soft-deleted employees — otherwise a trashed
+  // employee's enrolled fingerprint would still be able to clock in/out.
   useEffect(() => {
     const docRef = doc(db, 'rollcall', 'data');
     const unsubscribe = onSnapshot(
@@ -130,12 +125,13 @@ function FingerprintKiosk() {
       (snap) => {
         if (!snap.exists()) return;
         const data = snap.data();
-        setEmployees(data.employees || []);
+        const activeEmployees = (data.employees || []).filter((emp) => !emp.isDeleted);
+        setEmployees(activeEmployees);
 
         const timeLogs = data.timeLogs || {};
         const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
         const employeeMap = {};
-        (data.employees || []).forEach((emp) => {
+        activeEmployees.forEach((emp) => {
           employeeMap[emp.id] = emp.name;
         });
 
@@ -144,7 +140,8 @@ function FingerprintKiosk() {
           if (!key.endsWith(todayKey)) continue;
           const entry = timeLogs[key];
           const employeeId = key.split('-')[0];
-          const employeeName = employeeMap[employeeId] || 'Unknown';
+          const employeeName = employeeMap[employeeId];
+          if (!employeeName) continue; // skip logs belonging to deleted employees
           logs.push({
             employeeId,
             employeeName,
@@ -164,6 +161,33 @@ function FingerprintKiosk() {
     return () => unsubscribe();
   }, []);
 
+  // Keeps the local Java matcher's template cache in sync with Firestore.
+  // The matcher has no direct Firestore access (no credentials set up for
+  // that), so whenever the `fingerprints` collection changes — including on
+  // kiosk startup — we push every employee's templates down to it. Without
+  // this, restarting the matcher process would make it "forget" everyone
+  // enrolled before that restart.
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'fingerprints'),
+      (snapshot) => {
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (!data.employeeId || !Array.isArray(data.templates) || data.templates.length === 0) return;
+          fetch(`${MATCHER_API}/load-templates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employeeId: data.employeeId, templates: data.templates }),
+          }).catch((err) => {
+            console.error(`Failed to sync templates for ${data.employeeId} to matcher:`, err);
+          });
+        });
+      },
+      (err) => console.error('Failed to listen to fingerprints collection:', err)
+    );
+    return () => unsubscribe();
+  }, []);
+
   const resetToSelection = () => {
     setStatus('ready');
     setMessage('Select your action, then scan your finger.');
@@ -173,7 +197,6 @@ function FingerprintKiosk() {
 
   const handleQuickAdd = async () => {
     if (adminPassword !== 'admin123') {
-      // Replace with actual admin password logic
       setAdminError('Incorrect password');
       return;
     }
@@ -277,99 +300,94 @@ function FingerprintKiosk() {
     }
   }, []);
 
+  // ========== SDK INITIALIZATION WITH ENROLLMENT GUARD & AUTO RETRY ==========
   useEffect(() => {
     let mounted = true;
+    let retryTimeout = null;
+
+    // Pause the kiosk reader while the enrollment modal owns the scanner.
+    if (enrollingNewEmployee) {
+      if (sdkRef.current) {
+        try { sdkRef.current.stopAcquisition(); } catch (e) {}
+        sdkRef.current = null;
+      }
+      setStatus('Enrollment in progress...');
+      return;
+    }
 
     if (teardownTimerRef.current) {
       clearTimeout(teardownTimerRef.current);
       teardownTimerRef.current = null;
     }
 
-    if (!sdkRef.current) {
-      if (!window.Fingerprint || !window.Fingerprint.WebApi) {
-        setStatus('error');
-        setMessage(
-          'Fingerprint SDK script did not load. Check the <script> tags in public/index.html and your internet/CDN access.'
-        );
-      } else {
+    const initializeSDK = () => {
+      if (!mounted) return;
+
+      if (!sdkRef.current) {
+        if (!window.Fingerprint || !window.Fingerprint.WebApi) {
+          setStatus('error');
+          setMessage('Fingerprint SDK script did not load. Retrying in 1 second...');
+          retryTimeout = setTimeout(() => {
+            if (mounted) initializeSDK();
+          }, 1000);
+          return;
+        }
+
         const sdk = new window.Fingerprint.WebApi();
         sdkRef.current = sdk;
 
         sdk.onDeviceConnected = () => {
-          if (mounted) {
-            setStatus('ready');
-            setMessage('Select your action, then scan your finger.');
-          }
+          if (mounted) { setStatus('ready'); setMessage('Select your action, then scan your finger.'); }
         };
         sdk.onDeviceDisconnected = () => {
-          if (mounted) {
-            setStatus('error');
-            setMessage('Fingerprint scanner disconnected. Check the USB cable.');
-          }
+          if (mounted) { setStatus('error'); setMessage('Fingerprint scanner disconnected. Check the USB cable.'); }
         };
         sdk.onCommunicationFailed = () => {
           if (mounted) {
             setStatus('error');
-            setMessage(
-              'Cannot reach the DigitalPersona agent on this PC. Make sure the Lite Client is installed and running.'
-            );
+            setMessage('Cannot reach the DigitalPersona agent on this PC. Make sure the Lite Client is installed and running.');
           }
         };
         sdk.onErrorOccurred = (event) => {
-          if (mounted) {
-            setStatus('error');
-            setMessage(`Reader error: ${event.error || 'unknown error'}`);
-          }
-        };
-        sdk.onQualityReported = () => {
-          /* ignore */
+          if (mounted) { setStatus('error'); setMessage(`Reader error: ${event.error || 'unknown error'}`); }
         };
         sdk.onSamplesAcquired = handleSample;
 
-        sdk
-          .startAcquisition(window.Fingerprint.SampleFormat.PngImage)
-          .then(
-            () => {
-              if (mounted) {
-                setStatus('ready');
-                setMessage('Select your action, then scan your finger.');
-              }
-            },
-            (error) => {
-              console.error('Failed to start fingerprint acquisition:', error);
-              sdkRef.current = null;
-              if (mounted) {
-                setStatus('error');
-                setMessage(
-                  'Cannot connect to the fingerprint reader. Make sure the DigitalPersona Lite Client is running and the scanner is plugged in.'
-                );
-              }
+        sdk.startAcquisition(window.Fingerprint.SampleFormat.PngImage).then(
+          () => {
+            if (mounted) { setStatus('ready'); setMessage('Select your action, then scan your finger.'); }
+          },
+          (error) => {
+            console.error('Failed to start fingerprint acquisition:', error);
+            sdkRef.current = null;
+            if (mounted) {
+              setStatus('error');
+              setMessage('Cannot connect to the fingerprint reader. Make sure the DigitalPersona Lite Client is running.');
             }
-          );
+          }
+        );
+      } else {
+        setStatus('ready');
+        setMessage('Select your action, then scan your finger.');
       }
-    } else {
-      setStatus('ready');
-      setMessage('Select your action, then scan your finger.');
-    }
+    };
+
+    initializeSDK();
 
     return () => {
       mounted = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
       teardownTimerRef.current = setTimeout(() => {
         if (sdkRef.current) {
-          try {
-            sdkRef.current.stopAcquisition();
-          } catch (e) {
-            /* ignore */
-          }
+          try { sdkRef.current.stopAcquisition(); } catch (e) { /* ignore */ }
           sdkRef.current = null;
         }
         teardownTimerRef.current = null;
       }, STRICT_MODE_TEARDOWN_DELAY_MS);
     };
-  }, [handleSample]);
+  }, [handleSample, enrollingNewEmployee]);
 
   const goHome = () => {
-    // Go back to the main attendance register (remove query params)
     window.location.href = window.location.origin + window.location.pathname;
   };
 
@@ -426,11 +444,9 @@ function FingerprintKiosk() {
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,var(--radial-glow),transparent_60%)]" />
 
-      {/* Top-left buttons */}
       <button
         onClick={goHome}
         className="absolute top-5 left-5 flex items-center gap-1.5 bg-input hover:bg-card border border-main text-muted hover:text-main py-2 px-3.5 rounded-md text-sm font-medium transition z-10"
-        title="Exit kiosk and return to the attendance register"
       >
         ← Home
       </button>
@@ -448,17 +464,13 @@ function FingerprintKiosk() {
         </p>
       </div>
 
-      {/* ── Main content area ── */}
       <div className="flex flex-row w-full max-w-6xl items-start justify-center mt-10">
-        {/* Left section: brand, clock, scan, action */}
         <div className="flex-1 flex flex-col items-center justify-center">
-          {/* Brand mark */}
-<div className="text-center mb-6">
-  <p className="text-[11px] uppercase tracking-[0.35em] text-accent mb-1">MT World</p>
-  <h1 className="font-[Oswald,sans-serif] uppercase tracking-wide text-2xl md:text-3xl font-semibold text-accent-dark">Attendance Register</h1>
-</div>
+          <div className="text-center mb-6">
+            <p className="text-[11px] uppercase tracking-[0.35em] text-accent mb-1">MT World</p>
+            <h1 className="font-[Oswald,sans-serif] uppercase tracking-wide text-2xl md:text-3xl font-semibold text-accent-dark">Attendance Register</h1>
+          </div>
 
-          {/* Analog clock + digital readout */}
           <div className="flex flex-col items-center mb-8">
             <AnalogClock now={now} />
             <p className="mt-3 font-[IBM_Plex_Mono,monospace] text-2xl tracking-widest text-accent tabular-nums">
@@ -466,7 +478,6 @@ function FingerprintKiosk() {
             </p>
           </div>
 
-          {/* Porthole scan target */}
           <div
             className={`relative w-36 h-36 rounded-full flex items-center justify-center border-[3px] bg-card transition-all duration-300 mb-7 ${portholeGlow} ${stampPulse ? 'stamp-active' : ''} ${status === 'ready' && !selectedAction ? 'porthole-idle-pulse' : ''}`}
           >
@@ -474,7 +485,6 @@ function FingerprintKiosk() {
             <span className="text-5xl">🖐️</span>
           </div>
 
-          {/* Action selection or ticket stub */}
           <div className="min-h-[130px] flex flex-col items-center justify-start w-full max-w-sm">
             {status === 'matched' || status === 'no-match' || status === 'error' ? (
               <div
@@ -552,7 +562,6 @@ function FingerprintKiosk() {
               <p className="text-muted text-sm">{message}</p>
             )}
 
-            {/* Quick‑add enrollment UI (shown when no‑match or error) */}
             {(status === 'no-match' || status === 'error') &&
               !showAdminLogin &&
               !enrollingNewEmployee && (
@@ -607,7 +616,6 @@ function FingerprintKiosk() {
           </div>
         </div>
 
-        {/* ── Right sidebar: Today's Clock History ── */}
         {showHistory && (
           <div className="w-72 bg-card border border-main rounded-md p-4 ml-8 animate-fadeIn flex-shrink-0">
             <div className="flex items-center justify-between mb-3">
@@ -657,7 +665,6 @@ function FingerprintKiosk() {
         )}
       </div>
 
-      {/* ── Enrollment modal for newly added employee ── */}
       {enrollingNewEmployee && (
         <EnrollFingerprintModal
           employee={enrollingNewEmployee}

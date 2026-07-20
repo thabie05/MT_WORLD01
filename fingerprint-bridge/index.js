@@ -32,6 +32,7 @@ async function forward(req, res, path) {
 
 app.post('/enroll', (req, res) => forward(req, res, '/enroll'));
 app.post('/identify', (req, res) => forward(req, res, '/identify'));
+app.post('/load-templates', (req, res) => forward(req, res, '/load-templates'));
 
 app.get('/health', async (req, res) => {
   try {

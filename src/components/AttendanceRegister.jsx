@@ -457,34 +457,51 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   return (
     <div className="min-h-screen bg-body text-main font-['Inter',sans-serif]">
       {/* ========== HEADER ========== */}
-      <header className="relative bg-header border-b border-main px-6 py-5 flex justify-between items-center max-sm:px-4 max-sm:flex-col max-sm:gap-4 shadow-theme">
-        <div className="flex items-center gap-4">
-          <div className="h-8 w-px bg-[var(--border)]" />
-          <span className="font-['Oswald',sans-serif] uppercase tracking-wider text-lg text-accent font-semibold">MT WORLD</span>
-          <span className="text-accent-dark text-sm hidden md:inline">| Attendance Register</span>
-        </div>
-        <div className="flex items-center gap-3 max-sm:w-full max-sm:justify-between">
-          <button
-            onClick={toggleTheme}
-            className="bg-input border border-main rounded-full p-2 text-main hover:bg-accent-light transition-all"
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
+      <header className="flex flex-col bg-[linear-gradient(rgba(26,35,126,0.7),rgba(13,71,161,0.2)),url('/background1.png')] bg-left bg-no-repeat bg-contain relative pt-[150px] pb-[10px] px-6 rounded-xl mb-6 shadow-lg max-sm:py-4 max-sm:px-2 transition-colors duration-300">
+  
+  {/* ⬇️ LIGHT MODE OVERLAY: White soft overlay to brighten the image ⬇️ */}
+  <div className="absolute inset-0 bg-white/20 dark:bg-black/60 rounded-xl pointer-events-none transition-colors duration-300"></div>
+  
+  {/* ⬇️ CONTENT WRAPPER: Keeps content above the overlays ⬇️ */}
+  <div className="flex justify-between items-start w-full relative z-10 max-sm:flex-col max-sm:items-center max-sm:gap-2.5">
+    
+    {/* Left side – empty */}
+    <div></div>
 
-          <span className="inline-flex items-center gap-2 bg-input border border-main rounded-full px-4 py-1.5 text-sm font-medium text-main cursor-pointer hover:bg-accent-light transition-all"
-            onClick={() => setShowPasswordModal(true)} title="Click to change password">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            {currentUser.fullName}
-            {isAdmin && <span className="text-accent text-xs ml-1 font-semibold">(Admin)</span>}
-          </span>
-          <button onClick={onLogout} className="bg-[#B2604A] hover:bg-[#9E5340] text-white py-2 px-4 rounded-full font-medium text-sm transition-all">
-            Logout
-          </button>
-        </div>
-      </header>
+    {/* Right side – theme toggle + user info + logout */}
+    <div className="flex items-center gap-3 max-sm:flex-col max-sm:gap-2">
+      {/* Dark Mode Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        className="bg-white/10 border border-white/20 text-black dark:bg-[#262A33] dark:border-[#3A3F4B] dark:text-[#EDEAE2] rounded-full p-2 text-sm hover:bg-white/20 dark:hover:bg-[#2E333F] transition-all"
+        title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+      >
+        {theme === 'dark' ? '☀️' : '🌙'}
+      </button>
+
+      {/* User Info Badge */}
+      <span
+        className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 text-sm font-medium text-black dark:text-[#EDEAE2] dark:bg-[#262A33] dark:border-[#3A3F4B] cursor-pointer hover:bg-white/20 dark:hover:bg-[#2E333F] transition-all"
+        onClick={() => setShowPasswordModal(true)}
+        title="Click to change password"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+        {currentUser.fullName}
+        {isAdmin && <span className="text-[#0F91CC] dark:text-[#4DB8E8] text-xs ml-1 font-semibold">(Admin)</span>}
+      </span>
+
+      {/* Logout Button */}
+      <button
+        onClick={onLogout}
+        className="bg-white/10 border border-white/20 text-black dark:text-[#EDEAE2] dark:bg-[#262A33] dark:border-[#3A3F4B] py-2 px-4 rounded-full font-medium text-sm transition hover:bg-white/20 hover:border-white/30 dark:hover:bg-[#2E333F]"
+      >
+        Logout
+      </button>
+    </div>
+  </div>
+</header>
 
       {/* ========== NAVIGATION BAR ========== */}
       <nav className="max-w-[1920px] mx-auto mt-6 px-5 max-sm:px-2.5">
