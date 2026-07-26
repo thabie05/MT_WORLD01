@@ -1,17 +1,9 @@
-// Bridges the kiosk browser <-> the local Java/SourceAFIS matcher service
-// (Main.java, running on 127.0.0.1:8787). Kept as a separate thin layer
-// (rather than having the browser call Java directly) so we have one place
-// to add auth, logging, or swap the matching engine later without touching
-// the kiosk UI.
-//
-// Requires Node.js 18+ (uses the built-in global `fetch`).
-
 const express = require('express');
 const cors = require('cors');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); // fingerprint PNGs are small; this just leaves headroom
+app.use(express.json({ limit: '10mb' }));
 
 const MATCHER_URL = process.env.MATCHER_URL || 'http://127.0.0.1:8787';
 

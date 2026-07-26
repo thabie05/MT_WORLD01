@@ -17,6 +17,7 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+              <outputFile>${project.build.directory}/fingerprint-matcher.jar</outputFile>
               <transformers>
                 <transformer>
                   <mainClass>com.mtworld.matcher.Main</mainClass>

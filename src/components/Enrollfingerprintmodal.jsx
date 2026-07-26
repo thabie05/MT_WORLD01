@@ -4,7 +4,7 @@ import { db } from '../firebase';
 
 const MATCHER_API = 'http://127.0.0.1:4000';
 const STRICT_MODE_TEARDOWN_DELAY_MS = 300;
-const REQUEST_TIMEOUT_MS = 10000; // 10 second timeout for the matcher
+const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 
 const FINGER_NAMES = ['Primary Finger', 'Secondary Finger'];
 
@@ -13,7 +13,6 @@ function EnrollFingerprintModal({ employee, onClose }) {
   const [scanCount, setScanCount] = useState(0);
   const [samples, setSamples] = useState([]);
   const [collectedTemplates, setCollectedTemplates] = useState([]);
-
   const [status, setStatus] = useState(`Place your finger on the scanner for ${FINGER_NAMES[0]} - Scan 1/3`);
   const [enrolling, setEnrolling] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +21,6 @@ function EnrollFingerprintModal({ employee, onClose }) {
   const teardownTimerRef = useRef(null);
   const handleSampleRef = useRef(null);
 
-  // 1. Define the sample handler
   const handleSample = useCallback(async (event) => {
     if (enrolling || scanCount >= 3) return;
 
@@ -31,7 +29,15 @@ function EnrollFingerprintModal({ employee, onClose }) {
       const rawSample = Array.isArray(parsed) ? parsed[0] : parsed;
       if (!rawSample) throw new Error('No sample data received.');
 
-      const imageBase64 = window.Fingerprint.b64UrlTo64(rawSample);
+      // Clean the base64: remove any data:image/...;base64, prefix
+      let imageBase64 = window.Fingerprint.b64UrlTo64(rawSample);
+      // If the result still contains a comma, strip everything before it
+      if (imageBase64.includes(',')) {
+        imageBase64 = imageBase64.split(',')[1];
+      }
+      console.log('Cleaned base64 length:', imageBase64.length);
+      console.log('First 20 chars:', imageBase64.substring(0, 20));
+
       const newSamples = [...samples, imageBase64];
       setSamples(newSamples);
 
@@ -44,11 +50,6 @@ function EnrollFingerprintModal({ employee, onClose }) {
         setEnrolling(true);
         setStatus(`Processing ${FINGER_NAMES[currentFingerIndex]} template...`);
 
-        // --- Ask the matcher to turn these 3 scans into ONE best template ---
-        // Note: /enroll does NOT take an employeeId and does NOT persist
-        // anything by itself — it's a stateless "combine these scans"
-        // utility. We own persistence (Firestore) and are responsible for
-        // telling the matcher about it afterward via /load-templates.
         let result;
         try {
           const controller = new AbortController();
@@ -76,13 +77,11 @@ function EnrollFingerprintModal({ employee, onClose }) {
           }
           throw err;
         }
-        // --- End of critical backend request ---
 
         const newCollected = [...collectedTemplates, result.template];
         setCollectedTemplates(newCollected);
 
         if (newCollected.length === 2) {
-          // ✅ BOTH FINGERS DONE -> Save to Firestore
           setStatus('✅ Both fingerprints enrolled successfully! Saving to database...');
           try {
             const docRef = doc(db, 'fingerprints', employee.id);
@@ -96,9 +95,7 @@ function EnrollFingerprintModal({ employee, onClose }) {
             throw new Error('Failed to save to database. Check Firestore permissions.');
           }
 
-          // Push these templates into the matcher's live cache immediately,
-          // so /identify can recognize this employee on the very next scan
-          // without needing the matcher to be restarted.
+          // Sync to matcher
           try {
             await fetch(`${MATCHER_API}/load-templates`, {
               method: 'POST',
@@ -106,15 +103,11 @@ function EnrollFingerprintModal({ employee, onClose }) {
               body: JSON.stringify({ employeeId: employee.id, templates: newCollected }),
             });
           } catch (syncErr) {
-            // Not fatal — the enrollment is safely in Firestore either way.
-            // Worst case, the employee needs a kiosk restart (which re-syncs
-            // everything) before they can clock in.
-            console.error('Failed to sync templates to matcher (saved to Firestore OK):', syncErr);
+            console.error('Failed to sync templates to matcher:', syncErr);
           }
 
           setTimeout(() => onClose(), 1500);
         } else {
-          // ✅ MOVE TO THE SECOND FINGER
           setCurrentFingerIndex(1);
           setSamples([]);
           setScanCount(0);
@@ -126,16 +119,14 @@ function EnrollFingerprintModal({ employee, onClose }) {
       console.error('Enrollment error:', err);
       setError(err.message || 'Failed to capture fingerprint. Try again.');
       setStatus('❌ Error during capture. Press "Retry" to start over.');
-      setEnrolling(false); // Unlock the UI so they can retry
+      setEnrolling(false);
     }
   }, [samples, scanCount, currentFingerIndex, collectedTemplates, enrolling, employee.id, onClose]);
 
-  // Keep the ref always pointing to the latest handler
   useEffect(() => {
     handleSampleRef.current = handleSample;
   }, [handleSample]);
 
-  // 2. Initialize the SDK
   useEffect(() => {
     let mounted = true;
 
@@ -192,7 +183,6 @@ function EnrollFingerprintModal({ employee, onClose }) {
     };
   }, []);
 
-  // 3. Reset
   const handleRetry = () => {
     setCurrentFingerIndex(0);
     setScanCount(0);
@@ -205,14 +195,9 @@ function EnrollFingerprintModal({ employee, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
-      <div
-        className="bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl border border-main"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl border border-main" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-accent mb-2">🖐️ Enroll 2 Fingers</h2>
-        <p className="text-muted text-sm mb-4">
-          Enrolling: <strong className="text-main">{employee.name}</strong>
-        </p>
+        <p className="text-muted text-sm mb-4">Enrolling: <strong className="text-main">{employee.name}</strong></p>
 
         {/* Overall Progress */}
         <div className="flex justify-center gap-3 mb-4">
@@ -229,14 +214,7 @@ function EnrollFingerprintModal({ employee, onClose }) {
         {/* Current Finger Scan Progress */}
         <div className="flex justify-center gap-3 mb-6">
           {[1, 2, 3].map((step) => (
-            <div
-              key={step}
-              className={`w-10 h-10 rounded-full flex items-center justify-center border-2 text-sm font-bold transition-all ${
-                scanCount >= step
-                  ? 'bg-accent border-accent text-white'
-                  : 'border-main text-muted bg-input'
-              }`}
-            >
+            <div key={step} className={`w-10 h-10 rounded-full flex items-center justify-center border-2 text-sm font-bold transition-all ${scanCount >= step ? 'bg-accent border-accent text-white' : 'border-main text-muted bg-input'}`}>
               {scanCount >= step ? '✓' : step}
             </div>
           ))}
@@ -247,13 +225,7 @@ function EnrollFingerprintModal({ employee, onClose }) {
         </p>
 
         <div className="flex justify-center my-4">
-          <div
-            className={`w-28 h-28 rounded-full border-4 flex items-center justify-center text-4xl transition-all ${
-              enrolling || scanCount < 3
-                ? 'border-[var(--accent)] bg-accent-light animate-pulse'
-                : 'border-main bg-input'
-            }`}
-          >
+          <div className={`w-28 h-28 rounded-full border-4 flex items-center justify-center text-4xl transition-all ${enrolling || scanCount < 3 ? 'border-[var(--accent)] bg-accent-light animate-pulse' : 'border-main bg-input'}`}>
             {enrolling || scanCount < 3 ? '🖐️' : '✓'}
           </div>
         </div>
@@ -263,18 +235,11 @@ function EnrollFingerprintModal({ employee, onClose }) {
 
         <div className="flex gap-2 mt-4">
           {error && (
-            <button
-              onClick={handleRetry}
-              className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-semibold text-sm hover:bg-orange-600 transition"
-            >
+            <button onClick={handleRetry} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-semibold text-sm hover:bg-orange-600 transition">
               🔄 Retry
             </button>
           )}
-          <button
-            onClick={onClose}
-            disabled={enrolling}
-            className={`${error ? 'flex-1' : 'w-full'} py-2.5 bg-input text-muted rounded-xl font-medium hover:bg-card transition disabled:opacity-50`}
-          >
+          <button onClick={onClose} disabled={enrolling} className={`${error ? 'flex-1' : 'w-full'} py-2.5 bg-input text-muted rounded-xl font-medium hover:bg-card transition disabled:opacity-50`}>
             Cancel
           </button>
         </div>
