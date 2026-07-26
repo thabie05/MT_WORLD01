@@ -31,12 +31,9 @@ function EnrollFingerprintModal({ employee, onClose }) {
 
       // Clean the base64: remove any data:image/...;base64, prefix
       let imageBase64 = window.Fingerprint.b64UrlTo64(rawSample);
-      // If the result still contains a comma, strip everything before it
       if (imageBase64.includes(',')) {
         imageBase64 = imageBase64.split(',')[1];
       }
-      console.log('Cleaned base64 length:', imageBase64.length);
-      console.log('First 20 chars:', imageBase64.substring(0, 20));
 
       const newSamples = [...samples, imageBase64];
       setSamples(newSamples);
@@ -196,7 +193,10 @@ function EnrollFingerprintModal({ employee, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
       <div className="bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl border border-main" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-bold text-accent mb-2">🖐️ Enroll 2 Fingers</h2>
+        <h2 className="text-xl font-bold text-accent mb-2">
+          <img src="/fingerprint-icon.png" alt="" className="w-6 h-6 inline-block align-middle mr-2" />
+          Enroll 2 Fingers
+        </h2>
         <p className="text-muted text-sm mb-4">Enrolling: <strong className="text-main">{employee.name}</strong></p>
 
         {/* Overall Progress */}
@@ -226,7 +226,11 @@ function EnrollFingerprintModal({ employee, onClose }) {
 
         <div className="flex justify-center my-4">
           <div className={`w-28 h-28 rounded-full border-4 flex items-center justify-center text-4xl transition-all ${enrolling || scanCount < 3 ? 'border-[var(--accent)] bg-accent-light animate-pulse' : 'border-main bg-input'}`}>
-            {enrolling || scanCount < 3 ? '🖐️' : '✓'}
+            {enrolling || scanCount < 3 ? (
+              <img src="/fingerprint-icon.png" alt="Scanning" className="w-10 h-10 object-contain" />
+            ) : (
+              '✓'
+            )}
           </div>
         </div>
 

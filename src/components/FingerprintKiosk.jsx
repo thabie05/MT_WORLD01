@@ -93,6 +93,7 @@ function FingerprintKiosk() {
   const [stampPulse, setStampPulse] = useState(false);
 
   const [employees, setEmployees] = useState([]);
+  const [timeLogs, setTimeLogs] = useState({});
   const [showHistory, setShowHistory] = useState(false);
   const [todayLogs, setTodayLogs] = useState([]);
 
@@ -115,9 +116,7 @@ function FingerprintKiosk() {
     return () => clearInterval(id);
   }, []);
 
-  // Real-time listener for employees and today's time logs.
-  // NOTE: filters out soft-deleted employees — otherwise a trashed
-  // employee's enrolled fingerprint would still be able to clock in/out.
+  // Real-time listener for employees, timeLogs, and today's logs
   useEffect(() => {
     const docRef = doc(db, 'rollcall', 'data');
     const unsubscribe = onSnapshot(
@@ -127,21 +126,21 @@ function FingerprintKiosk() {
         const data = snap.data();
         const activeEmployees = (data.employees || []).filter((emp) => !emp.isDeleted);
         setEmployees(activeEmployees);
+        setTimeLogs(data.timeLogs || {});
 
-        const timeLogs = data.timeLogs || {};
         const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
         const employeeMap = {};
         activeEmployees.forEach((emp) => {
           employeeMap[emp.id] = emp.name;
         });
 
+        const timeLogsData = data.timeLogs || {};
         const logs = [];
-        for (const key of Object.keys(timeLogs)) {
+        for (const key of Object.keys(timeLogsData)) {
           if (!key.endsWith(todayKey)) continue;
-          const entry = timeLogs[key];
+          const entry = timeLogsData[key];
           const employeeId = key.split('-')[0];
-          const employeeName = employeeMap[employeeId];
-          if (!employeeName) continue; // skip logs belonging to deleted employees
+          const employeeName = employeeMap[employeeId] || 'Unknown';
           logs.push({
             employeeId,
             employeeName,
@@ -161,12 +160,7 @@ function FingerprintKiosk() {
     return () => unsubscribe();
   }, []);
 
-  // Keeps the local Java matcher's template cache in sync with Firestore.
-  // The matcher has no direct Firestore access (no credentials set up for
-  // that), so whenever the `fingerprints` collection changes — including on
-  // kiosk startup — we push every employee's templates down to it. Without
-  // this, restarting the matcher process would make it "forget" everyone
-  // enrolled before that restart.
+  // Firestore fingerprint sync
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, 'fingerprints'),
@@ -224,10 +218,7 @@ function FingerprintKiosk() {
     setStatus('scanning');
     setMessage('Checking fingerprint…');
     try {
-      const parsed =
-        typeof event.samples === 'string'
-          ? JSON.parse(event.samples)
-          : event.samples;
+      const parsed = typeof event.samples === 'string' ? JSON.parse(event.samples) : event.samples;
       const rawSample = Array.isArray(parsed) ? parsed[0] : parsed;
       if (!rawSample) throw new Error('No sample data received from reader.');
 
@@ -241,14 +232,10 @@ function FingerprintKiosk() {
       const result = await res.json();
 
       if (result.matched) {
-        const employee = employeesRef.current.find(
-          (e) => e.id === result.employeeId
-        );
+        const employee = employeesRef.current.find((e) => e.id === result.employeeId);
         if (!employee) {
           setStatus('no-match');
-          setMessage(
-            'Fingerprint matched an employee ID that no longer exists. Ask an admin to re-enroll.'
-          );
+          setMessage('Fingerprint matched an employee ID that no longer exists. Ask an admin to re-enroll.');
           setTimeout(() => {
             setStatus('ready');
             setMessage('Scan your finger to try again.');
@@ -300,12 +287,11 @@ function FingerprintKiosk() {
     }
   }, []);
 
-  // ========== SDK INITIALIZATION WITH ENROLLMENT GUARD & AUTO RETRY ==========
+  // SDK initialization
   useEffect(() => {
     let mounted = true;
     let retryTimeout = null;
 
-    // Pause the kiosk reader while the enrollment modal owns the scanner.
     if (enrollingNewEmployee) {
       if (sdkRef.current) {
         try { sdkRef.current.stopAcquisition(); } catch (e) {}
@@ -482,7 +468,8 @@ function FingerprintKiosk() {
             className={`relative w-36 h-36 rounded-full flex items-center justify-center border-[3px] bg-card transition-all duration-300 mb-7 ${portholeGlow} ${stampPulse ? 'stamp-active' : ''} ${status === 'ready' && !selectedAction ? 'porthole-idle-pulse' : ''}`}
           >
             <div className="absolute inset-2 rounded-full border border-[var(--border-strong)]" />
-            <span className="text-5xl">🖐️</span>
+            {/* ✅ FINGERPRINT ICON REPLACEMENT */}
+            <img src="/fingerprint-icon.png" alt="Fingerprint" className="w-12 h-12 object-contain" />
           </div>
 
           <div className="min-h-[130px] flex flex-col items-center justify-start w-full max-w-sm">
@@ -515,6 +502,20 @@ function FingerprintKiosk() {
                   </p>
                 )}
                 <p className="text-sm text-muted">{message}</p>
+
+                {/* Hourglass on Kiosk ticket */}
+                {matchedEmployee && (
+                  (() => {
+                    const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+                    const log = timeLogs[`${matchedEmployee.id}-${todayKey}`];
+                    if (log?.clockIn && !log?.clockOut) {
+                      return <p className="text-sm text-accent mt-1">⏳ Currently Clocked In</p>;
+                    } else if (log?.clockIn && log?.clockOut) {
+                      return <p className="text-sm text-green-600 dark:text-green-400 mt-1">✅ Clocked Out</p>;
+                    }
+                    return null;
+                  })()
+                )}
               </div>
             ) : canPickAction ? (
               <>

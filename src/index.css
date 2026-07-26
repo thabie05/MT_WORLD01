@@ -12,8 +12,8 @@
   --bg-highlight-text: #0F91CC;   /* Matches new accent */
   --text-main: #1B1E24;
   --text-muted: #5A5F6B;
-  --border: #E5E1D8;
-  --border-strong: #CBD5E1;
+  --border: #D6D0C0;              /* Darkened from #E5E1D8 — was nearly invisible against white/cream */
+  --border-strong: #B8C2D0;       /* Darkened from #CBD5E1 to match */
   
   /* BRAND COLORS */
   --accent: #0F91CC;              /* Bright Logo Blue */
@@ -36,8 +36,12 @@
   --stripe-color: rgba(0, 0, 0, 0.08);
   --radial-glow: rgba(15, 145, 204, 0.06);
 
-  /* ===== SOFTER STATUS COLORS (LIGHT) ===== */
-  --status-green-bg: #f0fdf4;      /* Extremely faint whisper-green */
+  /* ===== STATUS COLORS (LIGHT) ===== */
+  /* Present is the most common status in the grid, so it needs to actually
+     read as green at a glance — the previous value (#f0fdf4) was nearly
+     white and made the whole grid look unmarked/washed out, especially
+     next to the much bolder red/yellow/purple below it. */
+  --status-green-bg: #dcfce7;      /* Clearly visible pale green, matches the intensity of the other status colors */
   --status-green-text: #15803d;    /* Dark forest green for readability */
   --status-green-total: #16a34a;   /* Bright green for totals */
   

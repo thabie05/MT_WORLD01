@@ -3,6 +3,11 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import { monthNames } from '../utils/holidays';
 
 function StatsPage({ stats, currentMonth, currentYear, onClose }) {
+  // Filter out "Unmarked" and "Weekend" from the stats
+  const filteredStats = stats.filter(
+    (stat) => stat.name !== 'Unmarked' && stat.name !== 'Weekend'
+  );
+
   return (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
       <div
@@ -26,7 +31,7 @@ function StatsPage({ stats, currentMonth, currentYear, onClose }) {
           <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
-                data={stats}
+                data={filteredStats}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
@@ -36,7 +41,7 @@ function StatsPage({ stats, currentMonth, currentYear, onClose }) {
                 label={({ name, value }) => `${name}: ${value}`}
                 labelLine={true}
               >
-                {stats.map((entry, index) => (
+                {filteredStats.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={entry.color}
@@ -57,8 +62,9 @@ function StatsPage({ stats, currentMonth, currentYear, onClose }) {
           </ResponsiveContainer>
         </div>
 
+        {/* Summary Cards - now only displays filtered stats */}
         <div className="grid grid-cols-4 gap-3 max-sm:grid-cols-2">
-          {stats.map((stat) => (
+          {filteredStats.map((stat) => (
             <div
               key={stat.name}
               className="text-center py-3 px-2 rounded-xl bg-input border border-main"

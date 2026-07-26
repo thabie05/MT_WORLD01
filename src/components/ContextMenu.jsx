@@ -5,20 +5,39 @@ function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onEn
   if (!contextMenu) return null;
 
   return createPortal(
-    <div ref={contextMenuRef} className="absolute bg-[#20242C] rounded-xl shadow-2xl border border-[#3A3F4B] p-1.5 flex flex-col gap-0.5 z-[1500] min-w-[180px]" style={{ left: contextMenu.x, top: contextMenu.y }}>
-      <button onClick={onViewReport} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-[#262A33] text-[#EDEAE2] flex items-center gap-2">
+    <div
+      ref={contextMenuRef}
+      className="absolute bg-card rounded-xl shadow-2xl border border-main p-1.5 flex flex-col gap-0.5 z-[1500] min-w-[180px]"
+      style={{ left: contextMenu.x, top: contextMenu.y }}
+    >
+      <button
+        onClick={onViewReport}
+        className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-accent-light text-main flex items-center gap-2"
+      >
         📊 View Report
       </button>
-      <button onClick={onRename} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-[#262A33] text-[#EDEAE2] flex items-center gap-2">
+      <button
+        onClick={onRename}
+        className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-accent-light text-main flex items-center gap-2"
+      >
         ✏️ Rename
       </button>
-      <button onClick={onEnrollFingerprint} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-[#262A33] text-[#EDEAE2] flex items-center gap-2">
-        🖐️ Enroll Fingerprint
+      {/* ✅ FINGERPRINT ICON IN CONTEXT MENU */}
+      <button
+        onClick={onEnrollFingerprint}
+        className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-accent-light text-main flex items-center gap-2"
+      >
+        <img src="/fingerprint-icon.png" alt="" className="w-4 h-4 object-contain" />
+        Enroll Fingerprint
       </button>
-      <button onClick={onDelete} className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-[#3A2020] text-[#B2604A] flex items-center gap-2">
+      <button
+        onClick={onDelete}
+        className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-[var(--bg-red-soft)] text-[var(--accent-red)] flex items-center gap-2"
+      >
         🗑️ Delete
       </button>
-    </div>, document.body
+    </div>,
+    document.body
   );
 }
 
