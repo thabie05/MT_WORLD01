@@ -27,7 +27,7 @@ function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onEn
         onClick={onEnrollFingerprint}
         className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-accent-light text-main flex items-center gap-2"
       >
-        <img src="/fingerprint-icon.png" alt="" className="w-4 h-4 object-contain" />
+        <img src="./fingerprint-icon.png" alt="Fingerprint" className="w-5 h-5 object-contain ..." />
         Enroll Fingerprint
       </button>
       <button

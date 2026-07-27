@@ -44,6 +44,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [timeLogs, setTimeLogs] = useState({});
   const [lastEdit, setLastEdit] = useState(null);
   const closedStaleShiftsRef = useRef(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -559,58 +560,84 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     <div className="min-h-screen bg-body text-main font-[Inter,sans-serif]">
       <div className="max-w-[1920px] mx-auto p-5 max-sm:p-2.5">
 
-                {/* ========== HEADER with Background Image ========== */}
-        <header className="relative bg-card border border-main text-main py-8 px-6 rounded-2xl mb-6 shadow-theme max-sm:py-5 max-sm:px-4 transition-colors duration-300 min-h-[110px] flex flex-col items-center justify-center overflow-hidden">
+                                       {/* ========== HEADER ========== */}
+        <header className="relative bg-card border border-main text-main py-8 px-6 rounded-2xl mb-6 shadow-theme max-sm:py-5 max-sm:px-4 transition-colors duration-300 min-h-[110px] flex flex-col items-center justify-center">
           
-          {/* 1. Background Image */}
-          <div 
-            className="absolute inset-0 bg-[url('/background1.png')] bg-contain z-1 bg-left bg-no-repeat opacity-100 dark:opacity-100 transition-opacity duration-300"
-          ></div>
+          {/* Background Image */}
+          <div className="absolute inset-0 bg-[url('/background1.png')] bg-contain bg-left bg-no-repeat opacity-100 z-1 dark:opacity-100 rounded-2xl transition-opacity duration-300" />
+          <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/70 backdrop-blur-[1px] rounded-2xl transition-colors duration-300" />
 
-          {/* 2. Light/Dark Mode Overlay (keeps text readable) */}
-          <div 
-            className="absolute inset-0 bg-white/50 dark:bg-gray-800/70 backdrop-blur-[1px] transition-colors duration-300"
-          ></div>
-
-          {/* --- Right side: Logo --- */}
+          {/* Right: Logo */}
           <img 
             src="/logo.png" 
             alt="MT World Logo" 
-            className="absolute right-6 top-1 -translate-y-1 my-3 h-10 w-auto object-contain hidden md:block z-10" 
+            className="absolute right-6 top-1 -translate-y-0.5 h-10 w-auto object-contain hidden md:block z-10" 
           />
 
-          {/* --- Center: Title --- */}
+          {/* Center: Title */}
           <div className="flex flex-col items-center text-center relative z-10">
             <p className="text-[10px] uppercase tracking-[0.35em] text-accent mb-1">MT World</p>
             <h1 className="font-[Oswald,sans-serif] uppercase tracking-wide text-2xl font-semibold text-accent-dark">Attendance Register</h1>
           </div>
 
-          {/* --- Bottom Left: User Controls --- */}
-          <div className="absolute bottom-1 left-6 flex items-center gap-3 flex-wrap max-sm:left-4 max-sm:gap-2 z-10">
-            
+          {/* Bottom Right: User Menu (Dropdown) */}
+          <div className="absolute bottom-3 right-6 z-20 max-sm:right-4 max-sm:bottom-2">
+            <div className="relative">
+              {/* Username trigger */}
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 bg-input/80 hover:bg-accent-light border border-main rounded-full px-4 py-1.5 text-sm font-medium text-main transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>{currentUser.fullName}</span>
+                {isAdmin && <span className="text-accent text-xs ml-1 font-semibold">(Admin)</span>}
+                <span className="text-muted text-xs ml-1">▼</span>
+              </button>
 
-            {/* Username */}
-            <span
-              className="text-sm text-muted hover:text-main border opacity-80 hover:opacity-100 border-main rounded-full p-2 bg-input cursor-pointer transition-colors whitespace-nowrap"
-              onClick={() => setShowPasswordModal(true)}
-              title="Click to change password"
-            >
-              {currentUser.fullName} {isAdmin && <span className="text-accent">(Admin)</span>}
-            </span>
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="bg-input opacity-60 hover:opacity-100 hover:bg-accent-light border border-main rounded-full p-2 text-main transition-all"
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
-            {/* Logout */}
-            <button onClick={onLogout} className="bg-input hover:bg-card border opacity-60 hover:opacity-100 border-main text-main py-1.5 px-3.5 rounded-lg font-medium text-sm transition h-9">
-              Logout
-            </button>
+              {/* Dropdown menu */}
+              {dropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-main rounded-xl shadow-xl overflow-hidden z-50 animate-fadeIn">
+                  <div className="flex flex-col p-1">
+                    {/* Dark mode toggle */}
+                    <button
+                      onClick={() => {
+                        toggleTheme();
+                        setDropdownOpen(false);
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-main hover:bg-accent-light transition"
+                    >
+                      {theme === 'dark' ? '☀️' : '🌙'}
+                      <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                    </button>
+
+                    {/* Change password */}
+                    <button
+                      onClick={() => {
+                        setShowPasswordModal(true);
+                        setDropdownOpen(false);
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-main hover:bg-accent-light transition"
+                    >
+                      🔒 <span>Change Password</span>
+                    </button>
+
+                    {/* Logout */}
+                    <button
+                      onClick={() => {
+                        onLogout();
+                        setDropdownOpen(false);
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-100 transition"
+                    >
+                      🚪 <span>Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-
         </header>
 
         {/* ========== NAVIGATION BAR (ADDED) ========== */}

@@ -468,7 +468,7 @@ function FingerprintKiosk() {
 {/* Just the fingerprint image with dynamic glow colors */}
 <div className="flex justify-center mb-7">
   <img
-    src="/fingerprint-icon.png"
+    src="./fingerprint-icon.png"
     alt="Fingerprint"
     className={`w-36 h-36 object-contain transition-all duration-300 ${
       status === 'scanning'
@@ -479,7 +479,7 @@ function FingerprintKiosk() {
         ? 'drop-shadow-[0_0_20px_var(--accent-red)]'
         : ''
     }`}
-  />
+/>
 </div>
 
           <div className="min-h-[130px] flex flex-col items-center justify-start w-full max-w-sm">

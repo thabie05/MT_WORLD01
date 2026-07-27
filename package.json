@@ -3,32 +3,75 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "dist": "npm run build && electron-builder",
+    "pack": "electron-builder --dir"
   },
   "dependencies": {
-    "@digitalpersona/devices": "^0.2.6",
     "@emailjs/browser": "^4.4.1",
     "@tailwindcss/vite": "^4.3.0",
     "firebase": "^12.12.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "recharts": "^3.8.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "usb": "^3.0.1",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
     "vite": "^8.0.10"
-  }
+  },
+  "build": {
+    "appId": "com.mtworld.attendance",
+    "productName": "MT World Attendance",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "fingerprint-matcher/target/fingerprint-matcher.jar",
+        "to": "backend/fingerprint-matcher.jar"
+      },
+      {
+        "from": "fingerprint-bridge",
+        "to": "backend/bridge"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/MTlogo.png"
+    }
+  },
+  "description": "MT WORLD Attendance with Fingerprint Scanner",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thabie05/MT_WORLD.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thabie05/MT_WORLD/issues"
+  },
+  "homepage": "https://github.com/thabie05/MT_WORLD#readme"
 }
