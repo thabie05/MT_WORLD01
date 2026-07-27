@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Makes every Tailwind `dark:` utility class (used throughout the app,
+   e.g. AttendancePopup.js) respond to the app's own theme toggle
+   (data-theme="dark") instead of the OS/browser's prefers-color-scheme.
+   Without this, dark: classes only ever activate based on the visitor's
+   system setting, ignoring the in-app ☀️/🌙 toggle entirely. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* ===== THEME VARIABLES ===== */
 :root {
   /* Light Mode */
@@ -48,8 +55,11 @@
   --status-red-bg: #fecaca;        /* Bright light red */
   --status-red-text: #b91c1c;      /* Dark red */
   
-  --status-yellow-bg: #fef9c3;     /* Bright light yellow */
+  --status-yellow-bg: #fef9c3;     /* Bright light yellow (holidays use this) */
   --status-yellow-text: #a16207;   /* Dark amber */
+
+  --status-blue-bg: #dbeafe;       /* "Late" now uses logo blue instead of the old amber */
+  --status-blue-text: #0F91CC;     /* Matches --accent exactly */
   
   --status-purple-bg: #e9d5ff;     /* Bright light purple */
   --status-purple-text: #6b21a8;   /* Dark purple */
@@ -101,6 +111,9 @@
 
   --status-yellow-bg: rgba(251, 191, 36, 0.25);
   --status-yellow-text: #facc15;
+
+  --status-blue-bg: rgba(77, 184, 232, 0.2);
+  --status-blue-text: #4DB8E8;     /* Matches --accent in dark mode */
 
   --status-purple-bg: rgba(168, 85, 247, 0.25);
   --status-purple-text: #c084fc;

@@ -464,13 +464,23 @@ function FingerprintKiosk() {
             </p>
           </div>
 
-          <div
-            className={`relative w-36 h-36 rounded-full flex items-center justify-center border-[3px] bg-card transition-all duration-300 mb-7 ${portholeGlow} ${stampPulse ? 'stamp-active' : ''} ${status === 'ready' && !selectedAction ? 'porthole-idle-pulse' : ''}`}
-          >
-            <div className="absolute inset-2 rounded-full border border-[var(--border-strong)]" />
-            {/* ✅ FINGERPRINT ICON REPLACEMENT */}
-            <img src="/fingerprint-icon.png" alt="Fingerprint" className="w-12 h-12 object-contain" />
-          </div>
+          {/* Just the fingerprint image with glow — no outer cycle */}
+{/* Just the fingerprint image with dynamic glow colors */}
+<div className="flex justify-center mb-7">
+  <img
+    src="/fingerprint-icon.png"
+    alt="Fingerprint"
+    className={`w-36 h-36 object-contain transition-all duration-300 ${
+      status === 'scanning'
+        ? 'drop-shadow-[0_0_20px_var(--accent)] animate-pulse'
+        : status === 'matched'
+        ? 'drop-shadow-[0_0_20px_var(--accent-green)]'
+        : status === 'no-match' || status === 'error'
+        ? 'drop-shadow-[0_0_20px_var(--accent-red)]'
+        : ''
+    }`}
+  />
+</div>
 
           <div className="min-h-[130px] flex flex-col items-center justify-start w-full max-w-sm">
             {status === 'matched' || status === 'no-match' || status === 'error' ? (

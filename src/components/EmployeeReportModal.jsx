@@ -10,8 +10,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
   const totalEarly = report.reduce((s, m) => s + (m.Early || 0), 0);
   const totalAbsent = report.reduce((s, m) => s + (m.Absent || 0), 0);
   const totalOffDuty = report.reduce((s, m) => s + (m.OffDuty || 0), 0);
-  const totalWeekend = report.reduce((s, m) => s + (m.Weekend || 0), 0);
-  const totalHoliday = report.reduce((s, m) => s + (m.Holiday || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
@@ -23,7 +21,8 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
           📋 {employee.name} – {year} Attendance Report
         </h2>
 
-        <div className="grid grid-cols-4 gap-3 mb-5 max-md:grid-cols-4 max-sm:grid-cols-2">
+        {/* Summary Cards (Weekend & Holiday removed) */}
+        <div className="grid grid-cols-5 gap-3 mb-5 max-md:grid-cols-3 max-sm:grid-cols-2">
           <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-green-500">
             <span className="block text-xs text-muted mb-1">✓ Present</span>
             <strong className="text-2xl text-main">{totalPresent}</strong>
@@ -44,16 +43,9 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
             <span className="block text-xs text-muted mb-1">📋 Off Duty</span>
             <strong className="text-2xl text-main">{totalOffDuty}</strong>
           </div>
-          <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-slate-400">
-            <span className="block text-xs text-muted mb-1">📅 Weekend</span>
-            <strong className="text-2xl text-main">{totalWeekend}</strong>
-          </div>
-          <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-yellow-400">
-            <span className="block text-xs text-muted mb-1">🎉 Holiday</span>
-            <strong className="text-2xl text-main">{totalHoliday}</strong>
-          </div>
         </div>
 
+        {/* Bar Chart (Weekend & Holiday bars removed) */}
         <div className="mb-5 bg-input p-4 rounded-xl border border-main">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={report}>
@@ -73,12 +65,11 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
               <Bar dataKey="Early" fill="#8b5cf6" stackId="a" />
               <Bar dataKey="Absent" fill="#ef4444" stackId="a" />
               <Bar dataKey="OffDuty" fill="#94a3b8" stackId="a" />
-              <Bar dataKey="Weekend" fill="#475569" stackId="a" />
-              <Bar dataKey="Holiday" fill="#fbbf24" stackId="a" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
+        {/* Table (Weekend & Holiday columns removed) */}
         <div className="overflow-x-auto mb-4 border border-main rounded-lg custom-scrollbar">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -100,12 +91,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
                 </th>
                 <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
                   Off Duty
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Weekend
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Holiday
                 </th>
                 <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
                   Worked
@@ -130,12 +115,6 @@ function EmployeeReportModal({ employee, report, year, onClose }) {
                   </td>
                   <td className="py-2 px-3 border-b border-main text-slate-600 dark:text-slate-400">
                     {m.OffDuty}
-                  </td>
-                  <td className="py-2 px-3 border-b border-main text-slate-500 dark:text-slate-500">
-                    {m.Weekend}
-                  </td>
-                  <td className="py-2 px-3 border-b border-main text-yellow-600 dark:text-yellow-400">
-                    {m.Holiday}
                   </td>
                   <td className="py-2 px-3 border-b border-main text-main font-semibold">
                     {m.Present + m.Late + m.Early}

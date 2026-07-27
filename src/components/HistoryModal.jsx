@@ -82,14 +82,7 @@ function HistoryModal({ history, onClose }) {
           </div>
         )}
 
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={onClose}
-            className="btn-accent py-2 px-4 rounded-lg font-medium text-sm hover:opacity-90 transition"
-          >
-            Close
-          </button>
-        </div>
+        
       </div>
     </div>
   );
