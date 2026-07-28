@@ -5,14 +5,14 @@
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "electron": "electron .",
-    "dist": "npm run build && electron-builder",
-    "pack": "electron-builder --dir"
-  },
+  "dev": "vite",
+  "build": "vite build",
+  "lint": "eslint .",
+  "preview": "vite preview",
+  "electron": "electron .",
+  "dist": "npm version patch --no-git-tag-version && npm run build && electron-builder",
+  "pack": "npm version patch --no-git-tag-version && electron-builder --dir"
+},
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "@tailwindcss/vite": "^4.3.0",

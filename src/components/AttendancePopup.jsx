@@ -8,12 +8,15 @@ function AttendancePopup({
   popupRef,
   onMark,
   isAdmin,
+  isUser,
+  isViewer,   // <-- NEW
   onConfirmClear,
   isLocked,
 }) {
   if (!popup) return null;
 
-  const showStatusButtons = isAdmin || !isLocked;
+  // Show buttons to Admins AND Users, but NOT Viewers.
+  const showStatusButtons = isAdmin || isUser;
 
   return createPortal(
     <div
@@ -22,7 +25,7 @@ function AttendancePopup({
       style={{ left: popup.x, top: popup.y }}
     >
       <div className="flex gap-1.5 flex-wrap">
-        {showStatusButtons ? (
+        {showStatusButtons && (
           <>
             <button onClick={() => onMark(popup.employeeId, popup.day, 'present', popupNote)}
               className="py-1.5 px-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg font-semibold text-sm transition hover:bg-green-200 dark:hover:bg-green-800/40 hover:text-green-800 dark:hover:text-green-300 border border-green-200 dark:border-green-800/30">
@@ -45,12 +48,6 @@ function AttendancePopup({
               📋 Off Duty
             </button>
           </>
-        ) : (
-          // If locked, show disabled buttons and notify the user
-          <div className="w-full text-center py-2">
-            <p className="text-xs text-muted mb-2">This cell is locked.</p>
-            <span className="inline-block py-1 px-3 bg-input text-muted rounded-lg text-sm font-medium cursor-not-allowed">Actions disabled</span>
-          </div>
         )}
 
         {isAdmin && (
@@ -61,7 +58,6 @@ function AttendancePopup({
         )}
       </div>
 
-      {/* Input field is always visible if unlockable, or locked message */}
       {showStatusButtons && (
         <div className="border-t border-main pt-2 mt-1">
           <input
@@ -72,6 +68,19 @@ function AttendancePopup({
             className="w-full py-1.5 px-2.5 border border-main rounded-lg text-xs bg-input text-main placeholder-muted outline-none transition focus:border-accent"
           />
         </div>
+      )}
+
+      {/* Viewer message (only for viewers) */}
+      {isViewer && (
+        <p className="text-xs text-muted text-center border-t border-main pt-2 mt-1 italic">
+          Edit is blocked by admin – view‑only access.
+        </p>
+      )}
+
+      {isLocked && !isAdmin && (
+        <p className="text-xs text-muted text-center">
+          This cell is locked. Admin can change or clear it.
+        </p>
       )}
     </div>,
     document.body

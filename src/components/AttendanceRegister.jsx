@@ -17,6 +17,8 @@ import { useTheme } from '../contexts/ThemeContext';
 function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const { theme, toggleTheme } = useTheme();
 
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const [employees, setEmployees] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [edits, setEdits] = useState({});
@@ -44,7 +46,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [timeLogs, setTimeLogs] = useState({});
   const [lastEdit, setLastEdit] = useState(null);
   const closedStaleShiftsRef = useRef(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const popupRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -54,6 +55,8 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const isAdmin = currentUser.role === 'admin';
+  const isUser = currentUser.role === 'user';
+  const isViewer = currentUser.role === 'viewer';
 
   // ---------- Firestore real-time listener ----------
   useEffect(() => {
@@ -560,7 +563,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     <div className="min-h-screen bg-body text-main font-[Inter,sans-serif]">
       <div className="max-w-[1920px] mx-auto p-5 max-sm:p-2.5">
 
-                                       {/* ========== HEADER ========== */}
+        {/* ========== HEADER ========== */}
         <header className="relative bg-card border border-main text-main py-8 px-6 rounded-2xl mb-6 shadow-theme max-sm:py-5 max-sm:px-4 transition-colors duration-300 min-h-[110px] flex flex-col items-center justify-center">
           
           {/* Background Image */}
@@ -593,6 +596,8 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 </svg>
                 <span>{currentUser.fullName}</span>
                 {isAdmin && <span className="text-accent text-xs ml-1 font-semibold">(Admin)</span>}
+                {isUser && <span className="text-accent text-xs ml-1 font-semibold">(User)</span>}
+                {isViewer && <span className="text-muted text-xs ml-1 font-medium">(Viewer)</span>}
                 <span className="text-muted text-xs ml-1">▼</span>
               </button>
 
@@ -640,7 +645,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           </div>
         </header>
 
-        {/* ========== NAVIGATION BAR (ADDED) ========== */}
+        {/* ========== NAVIGATION BAR ========== */}
         <nav className="max-w-[1920px] mx-auto mb-6 ">
           <div className="bg-card rounded-xl p-3 flex items-center gap-2 flex-wrap border border-main shadow-theme transition-colors duration-300">
             <button onClick={() => setShowHistory(true)} className="bg-input text-main py-2 px-4 rounded-md font-medium text-sm hover:bg-accent-light transition flex items-center gap-2">
@@ -687,6 +692,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
         {/* ========== MAIN CARD ========== */}
         <div className="bg-card rounded-2xl p-5 shadow-theme border border-main transition-colors duration-300">
+          {/* ========== CONTROLS ========== */}
           <div className="flex justify-between items-center flex-wrap gap-4 mb-5 pb-5 border-b border-main transition-colors duration-300">
             <div className="flex items-center gap-4">
               <button onClick={handlePrevMonth} className="bg-body text-main rounded-full w-9 h-9 text-lg flex items-center justify-center hover:bg-accent-light transition border border-main">&lsaquo;</button>
@@ -695,14 +701,19 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
             </div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <button onClick={toggleSort} className="bg-input text-main py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-accent-light transition border border-main min-w-[70px]">{sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}</button>
-              <div className="flex gap-2">
-                <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} className="py-2 px-3 border border-main rounded-lg text-sm text-main bg-input outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition placeholder-muted" />
-                <button onClick={addEmployee} className="bg-[#5B9279] hover:bg-[#4E7F68] text-white py-2 px-4 rounded-lg font-medium text-sm transition">+ Add</button>
-              </div>
+              
+              {/* Add Employee - Only for Admins */}
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} className="py-2 px-3 border border-main rounded-lg text-sm text-main bg-input outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition placeholder-muted" />
+                  <button onClick={addEmployee} className="bg-[#5B9279] hover:bg-[#4E7F68] text-white py-2 px-4 rounded-lg font-medium text-sm transition">+ Add</button>
+                </div>
+              )}
             </div>
           </div>
           {addError && <p className="text-[#8A4634] text-xs mb-3 font-medium">{addError}</p>}
 
+          {/* ========== TABLE ========== */}
           {employees.length === 0 ? (
             <div className="text-center py-10 text-muted"><p>No employees added yet.</p></div>
           ) : (
@@ -888,6 +899,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
             <p>Click a blank cell to mark attendance. Options: Present, Absent, Late (Blue), or Early Leave (with optional note). Locked after two edits.</p>
             <p className="mt-1 text-xs">🟢 pulsing = still clocked in &nbsp;·&nbsp; ✓ = clocked out &nbsp;·&nbsp; ⏱ = auto clocked out at midnight (forgot to end shift)</p>
             {isAdmin && <p className="text-accent italic mt-1 text-xs">Admin: Click employee name for options. Use 💾 Backup to save data.</p>}
+            {(isUser || isViewer) && <p className="text-muted italic mt-1 text-xs">Limited access. Fingerprint scanning enabled.</p>}
           </footer>
         </div>
       </div>
@@ -928,13 +940,15 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         <EnrollFingerprintModal employee={enrollEmployee} onClose={() => setEnrollEmployee(null)} />
       )}
 
-      <AttendancePopup
+            <AttendancePopup
         popup={popup}
         popupNote={popupNote}
         setPopupNote={setPopupNote}
         popupRef={popupRef}
         onMark={markAttendance}
         isAdmin={isAdmin}
+        isUser={isUser}
+        isViewer={isViewer}    // <-- ADD THIS
         onConfirmClear={handleClearConfirm}
         isLocked={popup ? (() => {
           const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`;

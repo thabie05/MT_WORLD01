@@ -88,7 +88,6 @@ function FingerprintKiosk() {
   const [status, setStatus] = useState('init');
   const [message, setMessage] = useState('Starting fingerprint reader…');
   const [matchedEmployee, setMatchedEmployee] = useState(null);
-  const [selectedAction, setSelectedAction] = useState(null);
   const [now, setNow] = useState(new Date());
   const [stampPulse, setStampPulse] = useState(false);
 
@@ -106,10 +105,10 @@ function FingerprintKiosk() {
   const sdkRef = useRef(null);
   const teardownTimerRef = useRef(null);
   const employeesRef = useRef(employees);
-  const selectedActionRef = useRef(null);
+  const cooldownRef = useRef(false);
+  const cooldownTimerRef = useRef(null);
 
   useEffect(() => { employeesRef.current = employees; }, [employees]);
-  useEffect(() => { selectedActionRef.current = selectedAction; }, [selectedAction]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -184,9 +183,9 @@ function FingerprintKiosk() {
 
   const resetToSelection = () => {
     setStatus('ready');
-    setMessage('Select your action, then scan your finger.');
+    setMessage('Scan your finger to clock in/out.');
     setMatchedEmployee(null);
-    setSelectedAction(null);
+    setStampPulse(false);
   };
 
   const handleQuickAdd = async () => {
@@ -209,9 +208,9 @@ function FingerprintKiosk() {
   };
 
   const handleSample = useCallback(async (event) => {
-    const action = selectedActionRef.current;
-    if (!action) {
-      setMessage('Please select Start Shift or End Shift first.');
+    // 🔒 Block scanning during cooldown
+    if (cooldownRef.current) {
+      setMessage('Please wait a moment before scanning again.');
       return;
     }
 
@@ -237,12 +236,34 @@ function FingerprintKiosk() {
           setStatus('no-match');
           setMessage('Fingerprint matched an employee ID that no longer exists. Ask an admin to re-enroll.');
           setTimeout(() => {
-            setStatus('ready');
-            setMessage('Scan your finger to try again.');
-            setMatchedEmployee(null);
+            if (!cooldownRef.current) resetToSelection();
           }, RESULT_DISPLAY_MS);
         } else {
           setMatchedEmployee(employee);
+          // Auto‑detect action based on today's timeLog
+          const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+          const log = timeLogs[`${employee.id}-${todayKey}`];
+          // If there is a clockIn and no clockOut → end shift, otherwise start shift
+          const action = (log && log.clockIn && !log.clockOut) ? 'end' : 'start';
+
+          // ⏱️ 30‑MINUTE RULE: Prevent ending shift before 30 minutes
+          if (action === 'end' && log && log.clockIn) {
+            const startTime = new Date(log.clockIn);
+            const currentTime = new Date();
+            const diffMs = currentTime - startTime;
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+            if (diffMinutes < 30) {
+              const remaining = 30 - diffMinutes;
+              setStatus('error');
+              setMessage(`Cannot end shift yet. ${remaining} minutes remaining.`);
+              setTimeout(() => {
+                if (!cooldownRef.current) resetToSelection();
+              }, RESULT_DISPLAY_MS);
+              return;
+            }
+          }
+
           const clockResult = await recordFingerprintAction(employee, action);
           setStampPulse(true);
           setTimeout(() => setStampPulse(false), 500);
@@ -250,9 +271,7 @@ function FingerprintKiosk() {
             setStatus('no-match');
             setMessage(`${employee.name}: ${clockResult.error}`);
             setTimeout(() => {
-              setStatus('ready');
-              setMessage('Scan your finger to try again.');
-              setMatchedEmployee(null);
+              if (!cooldownRef.current) resetToSelection();
             }, RESULT_DISPLAY_MS);
           } else {
             setStatus('matched');
@@ -261,18 +280,21 @@ function FingerprintKiosk() {
             } else {
               setMessage(`Clocked OUT at ${clockResult.time.toLocaleTimeString()}`);
             }
-            setTimeout(() => {
+            // 🔒 Start 5‑second cooldown after successful scan
+            cooldownRef.current = true;
+            if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+            cooldownTimerRef.current = setTimeout(() => {
+              cooldownRef.current = false;
+              cooldownTimerRef.current = null;
               resetToSelection();
-            }, RESULT_DISPLAY_MS);
+            }, 5000);
           }
         }
       } else {
         setStatus('no-match');
         setMessage('Fingerprint not recognized. Try again.');
         setTimeout(() => {
-          setStatus('ready');
-          setMessage('Scan your finger to try again.');
-          setMatchedEmployee(null);
+          if (!cooldownRef.current) resetToSelection();
         }, RESULT_DISPLAY_MS);
       }
     } catch (err) {
@@ -280,14 +302,12 @@ function FingerprintKiosk() {
       setStatus('error');
       setMessage('Could not reach the fingerprint matching service. Try again.');
       setTimeout(() => {
-        setStatus('ready');
-        setMessage('Scan your finger to try again.');
-        setMatchedEmployee(null);
+        if (!cooldownRef.current) resetToSelection();
       }, RESULT_DISPLAY_MS);
     }
-  }, []);
+  }, [timeLogs]);
 
-  // SDK initialization
+  // SDK initialization – with stale closure fix
   useEffect(() => {
     let mounted = true;
     let retryTimeout = null;
@@ -309,21 +329,21 @@ function FingerprintKiosk() {
     const initializeSDK = () => {
       if (!mounted) return;
 
-      if (!sdkRef.current) {
-        if (!window.Fingerprint || !window.Fingerprint.WebApi) {
-          setStatus('error');
-          setMessage('Fingerprint SDK script did not load. Retrying in 1 second...');
-          retryTimeout = setTimeout(() => {
-            if (mounted) initializeSDK();
-          }, 1000);
-          return;
-        }
+      if (!window.Fingerprint || !window.Fingerprint.WebApi) {
+        setStatus('error');
+        setMessage('Fingerprint SDK script did not load. Retrying in 1 second...');
+        retryTimeout = setTimeout(() => {
+          if (mounted) initializeSDK();
+        }, 1000);
+        return;
+      }
 
+      if (!sdkRef.current) {
         const sdk = new window.Fingerprint.WebApi();
         sdkRef.current = sdk;
 
         sdk.onDeviceConnected = () => {
-          if (mounted) { setStatus('ready'); setMessage('Select your action, then scan your finger.'); }
+          if (mounted) { setStatus('ready'); setMessage('Scan your finger to clock in/out.'); }
         };
         sdk.onDeviceDisconnected = () => {
           if (mounted) { setStatus('error'); setMessage('Fingerprint scanner disconnected. Check the USB cable.'); }
@@ -337,11 +357,10 @@ function FingerprintKiosk() {
         sdk.onErrorOccurred = (event) => {
           if (mounted) { setStatus('error'); setMessage(`Reader error: ${event.error || 'unknown error'}`); }
         };
-        sdk.onSamplesAcquired = handleSample;
 
         sdk.startAcquisition(window.Fingerprint.SampleFormat.PngImage).then(
           () => {
-            if (mounted) { setStatus('ready'); setMessage('Select your action, then scan your finger.'); }
+            if (mounted) { setStatus('ready'); setMessage('Scan your finger to clock in/out.'); }
           },
           (error) => {
             console.error('Failed to start fingerprint acquisition:', error);
@@ -352,9 +371,13 @@ function FingerprintKiosk() {
             }
           }
         );
-      } else {
+      }
+
+      // Always attach the latest handler
+      if (sdkRef.current) {
+        sdkRef.current.onSamplesAcquired = handleSample;
         setStatus('ready');
-        setMessage('Select your action, then scan your finger.');
+        setMessage('Scan your finger to clock in/out.');
       }
     };
 
@@ -363,6 +386,7 @@ function FingerprintKiosk() {
     return () => {
       mounted = false;
       if (retryTimeout) clearTimeout(retryTimeout);
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
       teardownTimerRef.current = setTimeout(() => {
         if (sdkRef.current) {
           try { sdkRef.current.stopAcquisition(); } catch (e) { /* ignore */ }
@@ -378,17 +402,6 @@ function FingerprintKiosk() {
   };
 
   const canPickAction = status === 'ready' || status === 'no-match';
-
-  const portholeGlow =
-    status === 'matched'
-      ? 'border-[var(--accent-green)] shadow-[0_0_40px_var(--shadow-green)]'
-      : status === 'no-match' || status === 'error'
-      ? 'border-[var(--accent-red)] shadow-[0_0_40px_var(--shadow-red)]'
-      : status === 'scanning'
-      ? 'border-[var(--accent)] shadow-[0_0_40px_var(--shadow-gold)]'
-      : selectedAction
-      ? 'border-[var(--accent)] shadow-[0_0_25px_var(--shadow-gold)]'
-      : 'border-[var(--border-strong)]';
 
   const dateLabel = `${WEEKDAYS[now.getDay()]}, ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
   const timeLabel = now.toLocaleTimeString([], {
@@ -464,23 +477,21 @@ function FingerprintKiosk() {
             </p>
           </div>
 
-          {/* Just the fingerprint image with glow — no outer cycle */}
-{/* Just the fingerprint image with dynamic glow colors */}
-<div className="flex justify-center mb-7">
-  <img
-    src="./fingerprint-icon.png"
-    alt="Fingerprint"
-    className={`w-36 h-36 object-contain transition-all duration-300 ${
-      status === 'scanning'
-        ? 'drop-shadow-[0_0_20px_var(--accent)] animate-pulse'
-        : status === 'matched'
-        ? 'drop-shadow-[0_0_20px_var(--accent-green)]'
-        : status === 'no-match' || status === 'error'
-        ? 'drop-shadow-[0_0_20px_var(--accent-red)]'
-        : ''
-    }`}
-/>
-</div>
+          <div className="flex justify-center mb-7">
+            <img
+              src="./fingerprint-icon.png"
+              alt="Fingerprint"
+              className={`w-36 h-36 object-contain transition-all duration-300 ${
+                status === 'scanning'
+                  ? 'drop-shadow-[0_0_20px_var(--accent)] animate-pulse'
+                  : status === 'matched'
+                  ? 'drop-shadow-[0_0_20px_var(--accent-green)]'
+                  : status === 'no-match' || status === 'error'
+                  ? 'drop-shadow-[0_0_20px_var(--accent-red)]'
+                  : ''
+              }`}
+            />
+          </div>
 
           <div className="min-h-[130px] flex flex-col items-center justify-start w-full max-w-sm">
             {status === 'matched' || status === 'no-match' || status === 'error' ? (
@@ -501,7 +512,7 @@ function FingerprintKiosk() {
                 </div>
                 <p className="text-[10px] uppercase tracking-[0.25em] text-muted mb-1">
                   {status === 'matched'
-                    ? selectedAction === 'start' || message.includes('IN')
+                    ? message.includes('IN')
                       ? 'Clock-In Ticket'
                       : 'Clock-Out Ticket'
                     : 'Not Recorded'}
@@ -530,44 +541,7 @@ function FingerprintKiosk() {
             ) : canPickAction ? (
               <>
                 <p className="text-muted text-sm mb-4">{message}</p>
-                {!selectedAction ? (
-                  <div className="flex gap-3 w-full">
-                    <button
-                      onClick={() => {
-                        setSelectedAction('start');
-                        setMessage('Scan your finger to start your shift.');
-                      }}
-                      className="flex-1 flex flex-col items-center gap-1 bg-[var(--bg-green-soft)] hover:bg-[var(--bg-green-soft)]/80 border-l-4 border-[var(--accent-green)] py-4 px-4 rounded-md transition"
-                    >
-                      <span className="text-2xl">🟢</span>
-                      <span className="font-[Oswald,sans-serif] uppercase tracking-wide text-sm font-medium text-[var(--accent-green)]">
-                        Start Shift
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedAction('end');
-                        setMessage('Scan your finger to end your shift.');
-                      }}
-                      className="flex-1 flex flex-col items-center gap-1 bg-[var(--bg-red-soft)] hover:bg-[var(--bg-red-soft)]/80 border-l-4 border-[var(--accent-red)] py-4 px-4 rounded-md transition"
-                    >
-                      <span className="text-2xl">🔴</span>
-                      <span className="font-[Oswald,sans-serif] uppercase tracking-wide text-sm font-medium text-[var(--accent-red)]">
-                        End Shift
-                      </span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setSelectedAction(null);
-                      setMessage('Select your action, then scan your finger.');
-                    }}
-                    className="text-muted hover:text-main text-sm underline transition"
-                  >
-                    Cancel
-                  </button>
-                )}
+                <p className="text-center text-sm text-main">Scan your finger to automatically clock in or out.</p>
               </>
             ) : (
               <p className="text-muted text-sm">{message}</p>
