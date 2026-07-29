@@ -33,6 +33,13 @@
   
   --shadow-accent: rgba(15, 145, 204, 0.4);
   --bg-accent-soft: rgba(15, 145, 204, 0.15);
+
+  /* Used by FingerprintKiosk.js's porthole glow (matched/no-match/scanning
+     states) — these were missing entirely, so that glow effect has been
+     silently rendering as an invalid, empty box-shadow (no visible glow). */
+  --shadow-green: rgba(91, 146, 121, 0.4);
+  --shadow-red: rgba(178, 96, 74, 0.4);
+  --shadow-gold: rgba(15, 145, 204, 0.4);   /* name kept for the kiosk's existing className references; matches the blue accent, not brass */
   
   --accent-green: #5B9279;
   --accent-green-hover: #4E8069;
@@ -95,6 +102,10 @@
   
   --shadow-accent: rgba(77, 184, 232, 0.4);
   --bg-accent-soft: rgba(77, 184, 232, 0.2);
+
+  --shadow-green: rgba(91, 146, 121, 0.45);
+  --shadow-red: rgba(178, 96, 74, 0.45);
+  --shadow-gold: rgba(77, 184, 232, 0.4);
   
   --bg-green-soft: rgba(91, 146, 121, 0.2);
   --bg-red-soft: rgba(178, 96, 74, 0.2);
@@ -154,19 +165,31 @@
 
 .shadow-theme { box-shadow: var(--shadow); }
 
-/* ===== CUSTOM SCROLLBARS ===== */
-.custom-scrollbar::-webkit-scrollbar {
+/* ===== CUSTOM SCROLLBAR (Global) ===== */
+/* Firefox uses a different, non-prefixed scrollbar API than the
+   ::-webkit- one below — without this, Firefox just ignores all of it and
+   falls back to the OS default scrollbar instead of matching the theme. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--bg-body);
+}
+
+::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: var(--bg-body);
-  border-radius: 8px;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 8px;
+  border-radius: 4px;
+  border: 2px solid var(--bg-body);
+  transition: background 0.2s ease;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+::-webkit-scrollbar-corner {
+  background: var(--bg-body);
 }

@@ -63,10 +63,11 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      // Allows custom scrollbars to render properly in some edge cases
+      nativeWindowOpen: false,
     },
   });
 
-  // Load the hosted web app (or local dev server)
   const isDev = !app.isPackaged;
   if (isDev) {
     win.loadURL('http://localhost:5173');
@@ -75,19 +76,49 @@ function createWindow() {
   }
 
   win.maximize();
-  // win.webContents.openDevTools(); // uncomment if you need debugging
 }
 
 app.whenReady().then(() => {
+  // Hide the default Electron menu
+  const { Menu } = require('electron');
+  Menu.setApplicationMenu(null);
+
   createWindow();
   startBackendServices();
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+let quitInProgress = false;
 
-app.on('before-quit', () => {
-  if (javaProcess) javaProcess.kill('SIGINT');
-  if (bridgeProcess) bridgeProcess.kill('SIGINT');
+app.on('before-quit', async (event) => {
+  if (quitInProgress) {
+    // Let the second call to app.quit() actually proceed
+    return;
+  }
+
+  quitInProgress = true;
+  event.preventDefault();
+
+  console.log('[Electron] Starting graceful shutdown...');
+
+  const terminate = (proc, name) => {
+    return new Promise((resolve) => {
+      if (!proc) return resolve();
+      proc.once('close', () => resolve());
+      proc.kill('SIGINT');
+      setTimeout(() => {
+        if (!proc.killed) {
+          console.log(`[${name}] Force-killing with SIGKILL`);
+          proc.kill('SIGKILL');
+        }
+      }, 2000);
+    });
+  };
+
+  await Promise.all([
+    terminate(javaProcess, 'Java'),
+    terminate(bridgeProcess, 'Bridge'),
+  ]);
+
+  console.log('[Electron] Backend services terminated. Quitting app...');
+  app.quit();
 });
