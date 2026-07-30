@@ -1,0 +1,19 @@
+MT WORLD Attendance Register
+Copyright (c) 2026 MT World
+
+All rights reserved.
+
+This software is proprietary and confidential. It is provided for use solely by
+authorized personnel of MT World for the purpose of employee attendance
+management.
+
+Unauthorized copying, distribution, modification, or use of this software, or
+any portion thereof, is strictly prohibited without the prior written consent
+of MT World.
+
+This software is provided "as is" without warranty of any kind, either express
+or implied, including but not limited to the implied warranties of
+merchantability or fitness for a particular purpose.
+
+MT World shall not be liable for any damages arising from the use of this
+software.

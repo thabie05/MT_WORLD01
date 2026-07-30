@@ -75,7 +75,7 @@ function startJavaMatcher() {
   console.log('[Electron] Starting Java Matcher:', javaExe, '-jar', jarPath);
   javaProcess = spawn(javaExe, ['-jar', jarPath], {
     cwd: matcherDataDir(),
-    shell: true,
+    shell: false,
   });
   javaProcess.stdout.on('data', (data) => console.log(`[Java] ${data}`));
   javaProcess.stderr.on('data', (data) => console.error(`[Java Error] ${data}`));
