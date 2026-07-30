@@ -25,6 +25,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState({});
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(false); // ⬅️ NEW STATE
   const [sortOrder, setSortOrder] = useState('asc');
   const [showDeleted, setShowDeleted] = useState(false);
   const [showStatsPage, setShowStatsPage] = useState(false);
@@ -61,52 +62,53 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   // ---------- Firestore real-time listener ----------
   useEffect(() => {
     const docRef = doc(db, 'rollcall', 'data');
-    const unsubscribe = onSnapshot(docRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const savedAttendance = data.attendance || {};
-        const convertedAttendance = {};
-        for (const empId in savedAttendance) {
-          convertedAttendance[empId] = {};
-          for (const dateKey in savedAttendance[empId]) {
-            const value = savedAttendance[empId][dateKey];
-            if (value === true) convertedAttendance[empId][dateKey] = 'present';
-            else if (value === false) convertedAttendance[empId][dateKey] = 'absent';
-            else convertedAttendance[empId][dateKey] = value;
-          }
-        }
-        setEmployees(data.employees || []);
-        setAttendance(convertedAttendance);
-        setEdits(data.edits || {});
-        setHistory(data.history || []);
-        setNotes(data.notes || {});
-        setTimeLogs(data.timeLogs || {});
+    const unsubscribe = onSnapshot(
+      docRef,
+      (snap) => {
+        setConnectionError(false); // reset error on successful connection
 
-        if (!closedStaleShiftsRef.current) {
-          closedStaleShiftsRef.current = true;
-          closeStaleShifts().catch((err) => console.error('Failed to close stale shifts:', err));
+        if (snap.exists()) {
+          const data = snap.data();
+          const savedAttendance = data.attendance || {};
+          const convertedAttendance = {};
+          for (const empId in savedAttendance) {
+            convertedAttendance[empId] = {};
+            for (const dateKey in savedAttendance[empId]) {
+              const value = savedAttendance[empId][dateKey];
+              if (value === true) convertedAttendance[empId][dateKey] = 'present';
+              else if (value === false) convertedAttendance[empId][dateKey] = 'absent';
+              else convertedAttendance[empId][dateKey] = value;
+            }
+          }
+          setEmployees(data.employees || []);
+          setAttendance(convertedAttendance);
+          setEdits(data.edits || {});
+          setHistory(data.history || []);
+          setNotes(data.notes || {});
+          setTimeLogs(data.timeLogs || {});
+
+          if (!closedStaleShiftsRef.current) {
+            closedStaleShiftsRef.current = true;
+            closeStaleShifts().catch((err) => console.error('Failed to close stale shifts:', err));
+          }
+        } else {
+          // No document exists – treat as empty data
+          setEmployees([]);
+          setAttendance({});
+          setEdits({});
+          setHistory([]);
+          setNotes({});
+          setTimeLogs({});
+          // ⬇️ Do NOT create a demo document – just let the user add employees manually.
         }
-      } else {
-        const initialEmployees = [{ id: '1', name: 'John Doe' }, { id: '2', name: 'Jane Smith' }];
-        setEmployees(initialEmployees);
-        setAttendance({});
-        setEdits({});
-        setHistory([]);
-        setNotes({});
-        setTimeLogs({});
-        setDoc(docRef, {
-          employees: initialEmployees,
-          attendance: {},
-          edits: {},
-          history: [],
-          notes: {},
-        }).catch((err) => console.error('Failed to create initial document:', err));
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Failed to listen to data:', err);
+        setConnectionError(true);
+        setLoading(false);
       }
-      setLoading(false);
-    }, (err) => {
-      console.error('Failed to listen to data:', err);
-      setLoading(false);
-    });
+    );
     return () => unsubscribe();
   }, []);
 
@@ -565,19 +567,11 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
         {/* ========== HEADER ========== */}
         <header className="relative bg-card border border-main text-main py-8 px-6 rounded-2xl mb-6 shadow-theme max-sm:py-5 max-sm:px-4 transition-colors duration-300 min-h-[110px] flex flex-col items-center justify-center">
-          
-          {/* Background Image */}
           <div className="absolute inset-0 bg-[url('/background1.png')] bg-contain bg-left bg-no-repeat opacity-100 z-1 dark:opacity-100 rounded-2xl transition-opacity duration-300" />
           <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/70 backdrop-blur-[1px] rounded-2xl transition-colors duration-300" />
 
-          {/* Right: Logo */}
-          <img 
-            src="/logo.png" 
-            alt="MT World Logo" 
-            className="absolute right-6 top-1 -translate-y-0.5 h-10 w-auto object-contain hidden md:block z-10" 
-          />
+          <img src="./logo.png" alt="MT World Logo" className="absolute right-6 top-1 -translate-y-0.5 h-10 w-auto object-contain hidden md:block z-10" />
 
-          {/* Center: Title */}
           <div className="flex flex-col items-center text-center relative z-10">
             <p className="text-[10px] uppercase tracking-[0.35em] text-accent mb-1">MT World</p>
             <h1 className="font-[Oswald,sans-serif] uppercase tracking-wide text-2xl font-semibold text-accent-dark">Attendance Register</h1>
@@ -586,7 +580,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           {/* Bottom Right: User Menu (Dropdown) */}
           <div className="absolute bottom-3 right-6 z-20 max-sm:right-4 max-sm:bottom-2">
             <div className="relative">
-              {/* Username trigger */}
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-2 bg-input/80 hover:bg-accent-light border border-main rounded-full px-4 py-1.5 text-sm font-medium text-main transition-all"
@@ -601,39 +594,24 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
                 <span className="text-muted text-xs ml-1">▼</span>
               </button>
 
-              {/* Dropdown menu */}
               {dropdownOpen && (
                 <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-main rounded-xl shadow-xl overflow-hidden z-50 animate-fadeIn">
                   <div className="flex flex-col p-1">
-                    {/* Dark mode toggle */}
                     <button
-                      onClick={() => {
-                        toggleTheme();
-                        setDropdownOpen(false);
-                      }}
+                      onClick={() => { toggleTheme(); setDropdownOpen(false); }}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-main hover:bg-accent-light transition"
                     >
                       {theme === 'dark' ? '☀️' : '🌙'}
                       <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                     </button>
-
-                    {/* Change password */}
                     <button
-                      onClick={() => {
-                        setShowPasswordModal(true);
-                        setDropdownOpen(false);
-                      }}
+                      onClick={() => { setShowPasswordModal(true); setDropdownOpen(false); }}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-main hover:bg-accent-light transition"
                     >
                       🔒 <span>Change Password</span>
                     </button>
-
-                    {/* Logout */}
                     <button
-                      onClick={() => {
-                        onLogout();
-                        setDropdownOpen(false);
-                      }}
+                      onClick={() => { onLogout(); setDropdownOpen(false); }}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-100 transition"
                     >
                       🚪 <span>Logout</span>
@@ -678,7 +656,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
             <div className="w-px h-6 bg-[var(--border)] mx-1" />
             <button onClick={() => window.location.assign(`${window.location.origin}${window.location.pathname}?kiosk=1`)} className="btn-accent py-2 px-4 rounded-md font-semibold text-sm transition flex items-center gap-2">
-              <img src="/fingerprint-icon.png" alt="" className="w-5 h-5 object-contain" />
+              <img src="./fingerprint-icon.png" alt="" className="w-5 h-5 object-contain" />
               Kiosk
             </button>
 
@@ -702,7 +680,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
             <div className="flex items-center gap-2.5 flex-wrap">
               <button onClick={toggleSort} className="bg-input text-main py-2 px-3.5 rounded-lg font-medium text-sm hover:bg-accent-light transition border border-main min-w-[70px]">{sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}</button>
               
-              {/* Add Employee - Only for Admins */}
               {isAdmin && (
                 <div className="flex gap-2">
                   <input type="text" placeholder="Employee name" value={newEmployeeName} onChange={(e) => { setNewEmployeeName(e.target.value); setAddError(''); }} onKeyPress={(e) => e.key === 'Enter' && addEmployee()} className="py-2 px-3 border border-main rounded-lg text-sm text-main bg-input outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition placeholder-muted" />
@@ -715,7 +692,16 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
 
           {/* ========== TABLE ========== */}
           {employees.length === 0 ? (
-            <div className="text-center py-10 text-muted"><p>No employees added yet.</p></div>
+            <div className="text-center py-10 text-muted">
+              {connectionError ? (
+                <div>
+                  <p className="text-[var(--accent-red)] font-medium">Unable to connect to the database.</p>
+                  <p className="text-sm mt-2">Please check your internet connection and try again.</p>
+                </div>
+              ) : (
+                <p>No employees added yet.</p>
+              )}
+            </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-main transition-colors duration-300">
               <table className="w-full border-collapse min-w-[700px]">
@@ -940,7 +926,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         <EnrollFingerprintModal employee={enrollEmployee} onClose={() => setEnrollEmployee(null)} />
       )}
 
-            <AttendancePopup
+      <AttendancePopup
         popup={popup}
         popupNote={popupNote}
         setPopupNote={setPopupNote}
@@ -948,7 +934,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
         onMark={markAttendance}
         isAdmin={isAdmin}
         isUser={isUser}
-        isViewer={isViewer}    // <-- ADD THIS
         onConfirmClear={handleClearConfirm}
         isLocked={popup ? (() => {
           const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(popup.day).padStart(2, '0')}`;

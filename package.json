@@ -1,7 +1,7 @@
 {
   "name": "mt-world",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.12",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -43,9 +43,14 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "jre-win64/**/*",
       "!fingerprint-matcher/templates"
     ],
     "extraResources": [
+      {
+        "from": "jre-win64",
+        "to": "jre-win64"
+      },
       {
         "from": "fingerprint-matcher/target/fingerprint-matcher.jar",
         "to": "backend/fingerprint-matcher.jar"

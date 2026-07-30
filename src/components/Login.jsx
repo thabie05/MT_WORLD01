@@ -27,11 +27,11 @@ function Login({ onLogin }) {
       }
       const user = users.find((u) => u.username === username && u.password === password);
       if (user) {
-        onLogin({
-          username: user.username,
-          fullName: user.fullName,
+        onLogin({ 
+          username: user.username, 
+          fullName: user.fullName, 
           role: user.role,
-          rememberMe: rememberMe,
+          rememberMe: rememberMe 
         });
       } else {
         setError('Invalid username or password');
@@ -41,11 +41,11 @@ function Login({ onLogin }) {
       const users = loadUsers();
       const user = users.find((u) => u.username === username && u.password === password);
       if (user) {
-        onLogin({
-          username: user.username,
-          fullName: user.fullName,
+        onLogin({ 
+          username: user.username, 
+          fullName: user.fullName, 
           role: user.role,
-          rememberMe: rememberMe,
+          rememberMe: rememberMe 
         });
       } else {
         setError('Invalid username or password');
@@ -64,10 +64,19 @@ function Login({ onLogin }) {
       <div className="bg-card backdrop-blur-xl border border-main rounded-3xl p-10 w-full max-w-[420px] shadow-theme text-center relative z-10 animate-card-entry hover:-translate-y-1 transition-all">
         <div className="absolute -inset-0.5 rounded-[26px] bg-gradient-to-r from-transparent via-accent/30 to-purple-500/30 via-transparent bg-[length:200%_200%] animate-border-glow opacity-0 hover:opacity-100 transition-opacity -z-10" />
 
-        <h1 className="text-[2.5rem] font-extrabold text-accent tracking-wider mb-1 [text-shadow:0_2px_10px_rgba(0,0,0,0.3)] animate-title-slide">MT WORLD</h1>
-        <p className="text-base text-muted tracking-[0.2em] uppercase mb-8 animate-title-slide">Attendance Register</p>
+        {/* 🟢 YOUR LOGO HERE */}
+        <img 
+          src="./logo.png" 
+          alt="MT World Logo" 
+          className="h-16 w-auto object-contain mx-auto mb-4 animate-title-slide" 
+        />
+
+        <p className="text-base text-muted tracking-[0.2em] uppercase mb-8 animate-title-slide">
+          Attendance Register
+        </p>
 
         <form onSubmit={handleSubmit}>
+          {/* Username */}
           <input
             type="text"
             placeholder="Username"
@@ -77,9 +86,10 @@ function Login({ onLogin }) {
             className="w-full py-3.5 px-4 mb-4 bg-input border border-main rounded-2xl text-base text-main placeholder-muted outline-none transition-all focus:border-accent focus:shadow-[0_0_20px_rgba(59,130,246,0.3)] h-[52px] animate-input-slide"
           />
 
+          {/* Password with show/hide toggle */}
           <div className="relative mb-4 animate-input-slide">
             <input
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -105,6 +115,7 @@ function Login({ onLogin }) {
             </button>
           </div>
 
+          {/* Remember Me */}
           <div className="flex items-center justify-start mb-4">
             <label className="flex items-center cursor-pointer">
               <input

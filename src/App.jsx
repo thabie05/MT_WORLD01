@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import AttendanceRegister from './components/AttendanceRegister';
 import FingerprintKiosk from './components/FingerprintKiosk';
-// If you have a LiveBoard component, import it; otherwise ignore
+import CustomTitleBar from './components/TitleBar';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -36,17 +36,20 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // --- Kiosk mode (no login required) ---
+  // --- Kiosk mode ---
   if (params.kiosk) {
-    return <FingerprintKiosk />;
+    return (
+      <div className="flex flex-col h-screen overflow-hidden bg-body text-main font-['Inter',sans-serif]">
+        <CustomTitleBar />
+        <div className="flex-1 overflow-auto">
+          <FingerprintKiosk />
+        </div>
+      </div>
+    );
   }
 
-  // --- Live Board mode (if you have a component) ---
+  // --- Live Board mode (fallback) ---
   if (params.board) {
-    // return <LiveBoard />; // or redirect to register if not implemented
-    // For now, fallback to register
-    // return <AttendanceRegister currentUser={currentUser} onLogout={handleLogout} onPasswordChanged={() => {}} />;
-    // Since LiveBoard is not provided, we redirect to home
     window.location.href = window.location.pathname;
     return null;
   }
@@ -64,10 +67,17 @@ function App() {
     localStorage.removeItem('mtworld_current_user');
   };
 
-  return currentUser ? (
-    <AttendanceRegister currentUser={currentUser} onLogout={handleLogout} onPasswordChanged={() => {}} />
-  ) : (
-    <Login onLogin={handleLogin} />
+  return (
+    <div className="flex flex-col h-screen overflow-hidden bg-body text-main font-['Inter',sans-serif]">
+      <CustomTitleBar />
+      <div className="flex-1 overflow-auto">
+        {currentUser ? (
+          <AttendanceRegister currentUser={currentUser} onLogout={handleLogout} onPasswordChanged={() => {}} />
+        ) : (
+          <Login onLogin={handleLogin} />
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -194,7 +194,7 @@ function EnrollFingerprintModal({ employee, onClose }) {
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
       <div className="bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl border border-main" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-accent mb-2">
-          <img src="/fingerprint-icon.png" alt="" className="w-6 h-6 inline-block align-middle mr-2" />
+          <img src="./fingerprint-icon.png" alt="" className="w-6 h-6 inline-block align-middle mr-2" />
           Enroll 2 Fingers
         </h2>
         <p className="text-muted text-sm mb-4">Enrolling: <strong className="text-main">{employee.name}</strong></p>
@@ -227,7 +227,7 @@ function EnrollFingerprintModal({ employee, onClose }) {
         <div className="flex justify-center my-4">
           <div className={`w-28 h-28 rounded-full border-4 flex items-center justify-center text-4xl transition-all ${enrolling || scanCount < 3 ? 'border-[var(--accent)] bg-accent-light animate-pulse' : 'border-main bg-input'}`}>
             {enrolling || scanCount < 3 ? (
-              <img src="/fingerprint-icon.png" alt="Scanning" className="w-10 h-10 object-contain" />
+              <img src="./fingerprint-icon.png" alt="Scanning" className="w-10 h-10 object-contain" />
             ) : (
               '✓'
             )}
