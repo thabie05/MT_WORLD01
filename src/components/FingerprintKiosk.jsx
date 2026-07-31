@@ -96,6 +96,8 @@ function FingerprintKiosk() {
   const [showHistory, setShowHistory] = useState(false);
   const [todayLogs, setTodayLogs] = useState([]);
 
+  const [isOffline, setIsOffline] = useState(false);
+
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
@@ -104,9 +106,8 @@ function FingerprintKiosk() {
 
   const sdkRef = useRef(null);
   const teardownTimerRef = useRef(null);
-  const employeesRef = useRef(employees);
-  const cooldownRef = useRef(false);
   const cooldownTimerRef = useRef(null);
+  const employeesRef = useRef(employees);
 
   useEffect(() => { employeesRef.current = employees; }, [employees]);
 
@@ -115,12 +116,15 @@ function FingerprintKiosk() {
     return () => clearInterval(id);
   }, []);
 
-  // Real-time listener for employees, timeLogs, and today's logs
+  // ---------- Real-time listener for employees, timeLogs, and offline state ----------
   useEffect(() => {
     const docRef = doc(db, 'rollcall', 'data');
     const unsubscribe = onSnapshot(
       docRef,
+      { includeMetadataChanges: true },
       (snap) => {
+        setIsOffline(snap.metadata.fromCache);
+
         if (!snap.exists()) return;
         const data = snap.data();
         const activeEmployees = (data.employees || []).filter((emp) => !emp.isDeleted);
@@ -208,8 +212,7 @@ function FingerprintKiosk() {
   };
 
   const handleSample = useCallback(async (event) => {
-    // 🔒 Block scanning during cooldown
-    if (cooldownRef.current) {
+    if (cooldownTimerRef.current) {
       setMessage('Please wait a moment before scanning again.');
       return;
     }
@@ -235,32 +238,25 @@ function FingerprintKiosk() {
         if (!employee) {
           setStatus('no-match');
           setMessage('Fingerprint matched an employee ID that no longer exists. Ask an admin to re-enroll.');
-          setTimeout(() => {
-            if (!cooldownRef.current) resetToSelection();
-          }, RESULT_DISPLAY_MS);
+          setTimeout(() => resetToSelection(), RESULT_DISPLAY_MS);
         } else {
           setMatchedEmployee(employee);
-          // Auto‑detect action based on today's timeLog
           const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
           const log = timeLogs[`${employee.id}-${todayKey}`];
-          // If there is a clockIn and no clockOut → end shift, otherwise start shift
           const action = (log && log.clockIn && !log.clockOut) ? 'end' : 'start';
 
-          // ⏱️ 30‑MINUTE RULE: Prevent ending shift before 30 minutes
+          // ⏱️ 30-MINUTE RULE: Prevent ending shift before 30 minutes
           if (action === 'end' && log && log.clockIn) {
             const startTime = new Date(log.clockIn);
             const currentTime = new Date();
             const diffMs = currentTime - startTime;
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
             if (diffMinutes < 30) {
               const remaining = 30 - diffMinutes;
               setStatus('error');
               setMessage(`Cannot end shift yet. ${remaining} minutes remaining.`);
-              setTimeout(() => {
-                if (!cooldownRef.current) resetToSelection();
-              }, RESULT_DISPLAY_MS);
-              return;
+              setTimeout(() => resetToSelection(), RESULT_DISPLAY_MS);
+              return; // 🛑 Stops before recording clock-out
             }
           }
 
@@ -270,9 +266,7 @@ function FingerprintKiosk() {
           if (clockResult.error) {
             setStatus('no-match');
             setMessage(`${employee.name}: ${clockResult.error}`);
-            setTimeout(() => {
-              if (!cooldownRef.current) resetToSelection();
-            }, RESULT_DISPLAY_MS);
+            setTimeout(() => resetToSelection(), RESULT_DISPLAY_MS);
           } else {
             setStatus('matched');
             if (clockResult.action === 'clock-in') {
@@ -280,12 +274,9 @@ function FingerprintKiosk() {
             } else {
               setMessage(`Clocked OUT at ${clockResult.time.toLocaleTimeString()}`);
             }
-            // 🔒 Start 5‑second cooldown after successful scan
-            cooldownRef.current = true;
-            if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
-            cooldownTimerRef.current = setTimeout(() => {
-              cooldownRef.current = false;
-              cooldownTimerRef.current = null;
+            cooldownTimerRef.current = true;
+            setTimeout(() => {
+              cooldownTimerRef.current = false;
               resetToSelection();
             }, 5000);
           }
@@ -293,21 +284,17 @@ function FingerprintKiosk() {
       } else {
         setStatus('no-match');
         setMessage('Fingerprint not recognized. Try again.');
-        setTimeout(() => {
-          if (!cooldownRef.current) resetToSelection();
-        }, RESULT_DISPLAY_MS);
+        setTimeout(() => resetToSelection(), RESULT_DISPLAY_MS);
       }
     } catch (err) {
       console.error('Fingerprint identify failed:', err);
       setStatus('error');
       setMessage('Could not reach the fingerprint matching service. Try again.');
-      setTimeout(() => {
-        if (!cooldownRef.current) resetToSelection();
-      }, RESULT_DISPLAY_MS);
+      setTimeout(() => resetToSelection(), RESULT_DISPLAY_MS);
     }
   }, [timeLogs]);
 
-  // SDK initialization – with stale closure fix
+  // SDK initialization
   useEffect(() => {
     let mounted = true;
     let retryTimeout = null;
@@ -329,16 +316,16 @@ function FingerprintKiosk() {
     const initializeSDK = () => {
       if (!mounted) return;
 
-      if (!window.Fingerprint || !window.Fingerprint.WebApi) {
-        setStatus('error');
-        setMessage('Fingerprint SDK script did not load. Retrying in 1 second...');
-        retryTimeout = setTimeout(() => {
-          if (mounted) initializeSDK();
-        }, 1000);
-        return;
-      }
-
       if (!sdkRef.current) {
+        if (!window.Fingerprint || !window.Fingerprint.WebApi) {
+          setStatus('error');
+          setMessage('Fingerprint SDK script did not load. Retrying in 1 second...');
+          retryTimeout = setTimeout(() => {
+            if (mounted) initializeSDK();
+          }, 1000);
+          return;
+        }
+
         const sdk = new window.Fingerprint.WebApi();
         sdkRef.current = sdk;
 
@@ -357,6 +344,7 @@ function FingerprintKiosk() {
         sdk.onErrorOccurred = (event) => {
           if (mounted) { setStatus('error'); setMessage(`Reader error: ${event.error || 'unknown error'}`); }
         };
+        sdk.onSamplesAcquired = handleSample;
 
         sdk.startAcquisition(window.Fingerprint.SampleFormat.PngImage).then(
           () => {
@@ -373,7 +361,6 @@ function FingerprintKiosk() {
         );
       }
 
-      // Always attach the latest handler
       if (sdkRef.current) {
         sdkRef.current.onSamplesAcquired = handleSample;
         setStatus('ready');
@@ -397,9 +384,7 @@ function FingerprintKiosk() {
     };
   }, [handleSample, enrollingNewEmployee]);
 
-  const goHome = () => {
-    window.location.href = window.location.origin + window.location.pathname;
-  };
+  const goHome = () => window.history.back();
 
   const canPickAction = status === 'ready' || status === 'no-match';
 
@@ -409,6 +394,17 @@ function FingerprintKiosk() {
     minute: '2-digit',
     second: '2-digit',
   });
+
+  // Loading screen
+  if (status === 'init') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-body text-main font-['Inter',sans-serif] gap-6 p-6">
+        <img src="./logo.png" alt="MT World" className="h-16 w-auto object-contain animate-pulse" />
+        <div className="w-12 h-12 border-4 border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin" />
+        <p className="text-sm text-muted animate-pulse">{message}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-body text-main p-6 relative overflow-hidden font-[Inter,sans-serif]">
@@ -461,6 +457,12 @@ function FingerprintKiosk() {
         <p className="text-[10px] uppercase tracking-[0.25em] text-muted">
           {dateLabel}
         </p>
+        {/* Offline indicator */}
+        {isOffline && (
+          <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--status-red-text)] mt-1">
+            📴 Offline — scans still recorded, will sync automatically
+          </p>
+        )}
       </div>
 
       <div className="flex flex-row w-full max-w-6xl items-start justify-center mt-10">
@@ -524,7 +526,6 @@ function FingerprintKiosk() {
                 )}
                 <p className="text-sm text-muted">{message}</p>
 
-                {/* Hourglass on Kiosk ticket */}
                 {matchedEmployee && (
                   (() => {
                     const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;

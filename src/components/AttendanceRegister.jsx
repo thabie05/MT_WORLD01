@@ -13,11 +13,13 @@ import ConfirmModal from './ConfirmModal';
 import EnrollFingerprintModal from './EnrollFingerprintModal';
 import { closeStaleShifts } from '../utils/attendanceWrites';
 import { useTheme } from '../contexts/ThemeContext';
+import OfflineSyncBadge from './OfflineSyncBadge';
 
 function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const { theme, toggleTheme } = useTheme();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState({ fromCache: false, hasPendingWrites: false });
 
   const [employees, setEmployees] = useState([]);
   const [attendance, setAttendance] = useState({});
@@ -25,7 +27,7 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState({});
   const [loading, setLoading] = useState(true);
-  const [connectionError, setConnectionError] = useState(false); // ⬅️ NEW STATE
+  const [connectionError, setConnectionError] = useState(false);
   const [sortOrder, setSortOrder] = useState('asc');
   const [showDeleted, setShowDeleted] = useState(false);
   const [showStatsPage, setShowStatsPage] = useState(false);
@@ -64,7 +66,13 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
     const docRef = doc(db, 'rollcall', 'data');
     const unsubscribe = onSnapshot(
       docRef,
+      { includeMetadataChanges: true }, // 🟢 Triggers on cache/sync changes
       (snap) => {
+        // 🟢 Update the sync status badge
+        setSyncStatus({
+          fromCache: snap.metadata.fromCache,
+          hasPendingWrites: snap.metadata.hasPendingWrites,
+        });
         setConnectionError(false); // reset error on successful connection
 
         if (snap.exists()) {
@@ -99,7 +107,6 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           setHistory([]);
           setNotes({});
           setTimeLogs({});
-          // ⬇️ Do NOT create a demo document – just let the user add employees manually.
         }
         setLoading(false);
       },
@@ -578,7 +585,11 @@ function AttendanceRegister({ currentUser, onLogout, onPasswordChanged }) {
           </div>
 
           {/* Bottom Right: User Menu (Dropdown) */}
-          <div className="absolute bottom-3 right-6 z-20 max-sm:right-4 max-sm:bottom-2">
+          <div className="absolute bottom-3 right-6 z-20 max-sm:right-4 max-sm:bottom-2 flex items-center gap-3">
+            
+            {/* 🟢 OFFLINE SYNC BADGE */}
+            <OfflineSyncBadge fromCache={syncStatus.fromCache} hasPendingWrites={syncStatus.hasPendingWrites} />
+
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}

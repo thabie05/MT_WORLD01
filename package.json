@@ -1,7 +1,7 @@
 {
   "name": "mt-world",
   "private": true,
-  "version": "0.0.13",
+  "version": "0.0.21",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -14,6 +14,8 @@
     "pack": "npm version patch --no-git-tag-version && electron-builder --dir"
   },
   "dependencies": {
+    "@digitalpersona/fingerprint": "^1.0.0",
+    "@digitalpersona/websdk": "^1.1.0",
     "@emailjs/browser": "^4.4.1",
     "@tailwindcss/vite": "^4.3.0",
     "firebase": "^12.12.1",
@@ -29,8 +31,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
