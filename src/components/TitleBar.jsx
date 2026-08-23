@@ -1,46 +1,65 @@
 import React, { useState, useEffect } from 'react';
+import OfflineSyncBadge from './OfflineSyncBadge';
+import { useSyncStatus } from '../contexts/SyncStatusContext';
 
-// Only renders when running inside the Electron desktop app (preload.js
-// exposes window.electronAPI there, with isElectron: true). In a normal
-// browser tab, window.electronAPI doesn't exist, there's no OS window
-// frame to replace, and this component simply renders nothing.
-const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron === true;
+// Detect Wails environment
+const isWails = typeof window !== 'undefined' && window.go && window.go.main && window.go.main.App;
 
 function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
+  const { syncStatus } = useSyncStatus();
 
   useEffect(() => {
-    if (!isElectron) return;
-    window.electronAPI.isMaximized().then(setIsMaximized);
-    const unsubscribe = window.electronAPI.onMaximizedChanged(setIsMaximized);
-    return unsubscribe;
+    if (!isWails) return;
+    // Get initial maximized state
+    window.go.main.App.WindowIsMaximised().then(setIsMaximized).catch(() => {});
   }, []);
 
-  if (!isElectron) return null;
+  if (!isWails) return null;
+
+  const handleMinimize = () => window.go.main.App.WindowMinimise();
+  const handleMaximize = () => {
+    // Toggle and then re-query state
+    window.go.main.App.WindowToggleMaximise().then(() => {
+      window.go.main.App.WindowIsMaximised().then(setIsMaximized).catch(() => {});
+    });
+  };
+  const handleClose = () => window.go.main.App.WindowClose();
 
   return (
     <div
-      className="flex items-center justify-between h-9 bg-card border-b border-main select-none"
-      style={{ WebkitAppRegion: 'drag' }}
+      className="flex items-center justify-between h-9 bg-card select-none relative"
+      style={{ '--wails-draggable': 'drag' }}
     >
-      <div className="flex items-center gap-2 px-3 pointer-events-none">
+      {/* Left: Logo & Title */}
+      <div className="flex items-center gap-2 px-3 pointer-events-none z-10" style={{ '--wails-draggable': 'drag' }}>
         <img src="./icon.png" alt="" className="w-4 h-4" />
         <span className="text-xs font-[Oswald,sans-serif] uppercase tracking-wide text-main">
           MT World Attendance
         </span>
       </div>
 
-      <div className="flex h-full" style={{ WebkitAppRegion: 'no-drag' }}>
+      {/* Right side: Sync badge + Window controls */}
+      <div className="flex items-center gap-3 px-2 z-10" style={{ '--wails-draggable': 'no-drag' }}>
+        <OfflineSyncBadge
+          fromCache={syncStatus.fromCache}
+          hasPendingWrites={syncStatus.hasPendingWrites}
+        />
+
+        {/* Minimize */}
         <button
-          onClick={() => window.electronAPI.minimize()}
+          onClick={handleMinimize}
           className="w-11 h-9 flex items-center justify-center text-muted hover:bg-accent-light hover:text-main transition-colors"
           title="Minimize"
         >
-          <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="4.5" width="10" height="1" fill="currentColor" /></svg>
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <rect x="0" y="4.5" width="10" height="1" fill="currentColor" />
+          </svg>
         </button>
 
+        {/* Maximize / Restore */}
         <button
-          onClick={() => window.electronAPI.maximize()}
+          onClick={handleMaximize}
           className="w-11 h-9 flex items-center justify-center text-muted hover:bg-accent-light hover:text-main transition-colors"
           title={isMaximized ? 'Restore' : 'Maximize'}
         >
@@ -56,8 +75,9 @@ function TitleBar() {
           )}
         </button>
 
+        {/* Close */}
         <button
-          onClick={() => window.electronAPI.close()}
+          onClick={handleClose}
           className="w-11 h-9 flex items-center justify-center text-muted hover:bg-[#B2604A] hover:text-white transition-colors"
           title="Close"
         >

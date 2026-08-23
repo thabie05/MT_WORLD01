@@ -1,139 +1,151 @@
-import React from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { monthNames } from '../utils/holidays';
+import React, { useState } from 'react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { X } from 'lucide-react';
 
-function EmployeeReportModal({ employee, report, year, onClose }) {
-  if (!report || !employee) return null;
+function EditEmployeeModal({ employee, onClose, onUpdate }) {
+  const [formData, setFormData] = useState({
+    email: employee.email || '',
+    phone: employee.phone || '',
+    address: employee.address || '',
+    position: employee.position || '',
+    department: employee.department || '',
+    startDate: employee.startDate || '',
+    cv: employee.cv || '',
+  });
+  const [saving, setSaving] = useState(false);
 
-  const totalPresent = report.reduce((s, m) => s + (m.Present || 0), 0);
-  const totalLate = report.reduce((s, m) => s + (m.Late || 0), 0);
-  const totalEarly = report.reduce((s, m) => s + (m.Early || 0), 0);
-  const totalAbsent = report.reduce((s, m) => s + (m.Absent || 0), 0);
-  const totalOffDuty = report.reduce((s, m) => s + (m.OffDuty || 0), 0);
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const docRef = doc(db, 'rollcall', 'data');
+      // We need to update the specific employee in the employees array
+      // We'll fetch current data, find the employee, update it, and write back.
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        const employees = data.employees || [];
+        const updatedEmployees = employees.map((emp) =>
+          emp.id === employee.id ? { ...emp, ...formData } : emp
+        );
+        await updateDoc(docRef, { employees: updatedEmployees });
+        onUpdate({ ...employee, ...formData }); // update parent state
+        onClose();
+      }
+    } catch (err) {
+      console.error('Failed to update employee:', err);
+      alert('Failed to save changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[2000] p-5" onClick={onClose}>
-      <div
-        className="bg-card rounded-2xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl border border-main"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-xl font-bold text-accent mb-4">
-          📋 {employee.name} – {year} Attendance Report
-        </h2>
-
-        {/* Summary Cards (Weekend & Holiday removed) */}
-        <div className="grid grid-cols-5 gap-3 mb-5 max-md:grid-cols-3 max-sm:grid-cols-2">
-          <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-green-500">
-            <span className="block text-xs text-muted mb-1">✓ Present</span>
-            <strong className="text-2xl text-main">{totalPresent}</strong>
-          </div>
-          <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-amber-500">
-            <span className="block text-xs text-muted mb-1">⏰ Late</span>
-            <strong className="text-2xl text-main">{totalLate}</strong>
-          </div>
-          <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-purple-500">
-            <span className="block text-xs text-muted mb-1">🚪 Early</span>
-            <strong className="text-2xl text-main">{totalEarly}</strong>
-          </div>
-          <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-red-500">
-            <span className="block text-xs text-muted mb-1">✗ Absent</span>
-            <strong className="text-2xl text-main">{totalAbsent}</strong>
-          </div>
-          <div className="text-center py-3 px-2 rounded-xl bg-input border border-main border-l-4 border-l-slate-500">
-            <span className="block text-xs text-muted mb-1">📋 Off Duty</span>
-            <strong className="text-2xl text-main">{totalOffDuty}</strong>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-card border border-main rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-main">
+          <h2 className="text-lg font-semibold text-main">Edit Employee Details</h2>
+          <button onClick={onClose} className="text-muted hover:text-main transition-colors">
+            <X size={20} />
+          </button>
         </div>
-
-        {/* Bar Chart (Weekend & Holiday bars removed) */}
-        <div className="mb-5 bg-input p-4 rounded-xl border border-main">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={report}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-main)',
-                }}
-              />
-              <Legend wrapperStyle={{ color: 'var(--text-muted)' }} />
-              <Bar dataKey="Present" fill="#22c55e" stackId="a" />
-              <Bar dataKey="Late" fill="#f59e0b" stackId="a" />
-              <Bar dataKey="Early" fill="#8b5cf6" stackId="a" />
-              <Bar dataKey="Absent" fill="#ef4444" stackId="a" />
-              <Bar dataKey="OffDuty" fill="#94a3b8" stackId="a" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Table (Weekend & Holiday columns removed) */}
-        <div className="overflow-x-auto mb-4 border border-main rounded-lg custom-scrollbar">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-input">
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Month
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Present
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Late
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Early
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Absent
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Off Duty
-                </th>
-                <th className="font-semibold py-2 px-3 text-left border-b border-main text-accent">
-                  Worked
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.map((m) => (
-                <tr key={m.month} className="even:bg-card">
-                  <td className="py-2 px-3 border-b border-main text-main">{m.month}</td>
-                  <td className="py-2 px-3 border-b border-main text-green-600 dark:text-green-400">
-                    {m.Present}
-                  </td>
-                  <td className="py-2 px-3 border-b border-main text-amber-600 dark:text-amber-400">
-                    {m.Late}
-                  </td>
-                  <td className="py-2 px-3 border-b border-main text-purple-600 dark:text-purple-400">
-                    {m.Early}
-                  </td>
-                  <td className="py-2 px-3 border-b border-main text-red-600 dark:text-red-400">
-                    {m.Absent}
-                  </td>
-                  <td className="py-2 px-3 border-b border-main text-slate-600 dark:text-slate-400">
-                    {m.OffDuty}
-                  </td>
-                  <td className="py-2 px-3 border-b border-main text-main font-semibold">
-                    {m.Present + m.Late + m.Early}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <button
-          onClick={onClose}
-          className="btn-accent py-2 px-4 rounded-lg font-medium text-sm hover:opacity-90 transition"
-        >
-          Close
-        </button>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-main mb-1">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full bg-input border border-main rounded-lg px-3 py-2 text-sm text-main outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-main mb-1">Phone</label>
+            <input
+              type="text"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full bg-input border border-main rounded-lg px-3 py-2 text-sm text-main outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-main mb-1">Address</label>
+            <input
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              className="w-full bg-input border border-main rounded-lg px-3 py-2 text-sm text-main outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-main mb-1">Position</label>
+            <input
+              type="text"
+              name="position"
+              value={formData.position}
+              onChange={handleChange}
+              className="w-full bg-input border border-main rounded-lg px-3 py-2 text-sm text-main outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-main mb-1">Department</label>
+            <input
+              type="text"
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              className="w-full bg-input border border-main rounded-lg px-3 py-2 text-sm text-main outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-main mb-1">Start Date</label>
+            <input
+              type="date"
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              className="w-full bg-input border border-main rounded-lg px-3 py-2 text-sm text-main outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-main mb-1">CV</label>
+            <textarea
+              name="cv"
+              value={formData.cv}
+              onChange={handleChange}
+              rows={4}
+              className="w-full bg-input border border-main rounded-lg px-3 py-2 text-sm text-main outline-none focus:border-accent resize-y"
+              placeholder="Paste CV content or link..."
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2 bg-input border border-main rounded-lg text-sm font-medium text-muted hover:bg-accent-light"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover transition disabled:opacity-60"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
 
-export default EmployeeReportModal;
+export default EditEmployeeModal;

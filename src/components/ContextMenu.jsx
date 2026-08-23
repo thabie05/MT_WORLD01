@@ -1,7 +1,15 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onEnrollFingerprint, onDelete }) {
+function ContextMenu({
+  contextMenu,
+  contextMenuRef,
+  onViewReport,
+  onViewProfile,   // ✅ Already included
+  onRename,
+  onEnrollFingerprint,
+  onDelete,
+}) {
   if (!contextMenu) return null;
 
   return createPortal(
@@ -17,17 +25,22 @@ function ContextMenu({ contextMenu, contextMenuRef, onViewReport, onRename, onEn
         📊 View Report
       </button>
       <button
+        onClick={onViewProfile}
+        className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-accent-light text-main flex items-center gap-2"
+      >
+        👤 View Profile
+      </button>
+      <button
         onClick={onRename}
         className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-accent-light text-main flex items-center gap-2"
       >
         ✏️ Rename
       </button>
-      {/* ✅ FINGERPRINT ICON IN CONTEXT MENU */}
       <button
         onClick={onEnrollFingerprint}
         className="bg-transparent text-left py-2.5 px-3.5 rounded-lg text-sm font-medium transition hover:bg-accent-light text-main flex items-center gap-2"
       >
-        <img src="./fingerprint-icon.png" alt="Fingerprint" className="w-5 h-5 object-contain ..." />
+        <img src="./fingerprint-icon.png" alt="Fingerprint" className="w-5 h-5 object-contain" />
         Enroll Fingerprint
       </button>
       <button

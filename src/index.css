@@ -1,142 +1,132 @@
 @import "tailwindcss";
 
-/* Makes every Tailwind `dark:` utility class (used throughout the app,
-   e.g. AttendancePopup.js) respond to the app's own theme toggle
-   (data-theme="dark") instead of the OS/browser's prefers-color-scheme.
-   Without this, dark: classes only ever activate based on the visitor's
-   system setting, ignoring the in-app ☀️/🌙 toggle entirely. */
+/* Makes every Tailwind `dark:` utility class respond to the app's own theme toggle
+   (data-theme="dark") instead of the OS/browser's prefers-color-scheme. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* ===== THEME VARIABLES ===== */
 :root {
-  /* Light Mode */
-  --bg-body: #F5F3EE;
-  --bg-card: #FFFFFF;
-  --bg-header: #FFFFFF;
+  /* Light Mode – less bright, more comfortable */
+  --bg-body: #E8EDF2;
+  --bg-card: #F4F7FA;
+  --bg-header: #F4F7FA;
   --bg-input: #FFFFFF;
-  --bg-table-even: #F8FAFC;
-  --bg-highlight: #E4F3FA;        /* Light blue highlight */
-  --bg-highlight-text: #0F91CC;   /* Matches new accent */
-  --text-main: #1B1E24;
-  --text-muted: #5A5F6B;
-  --border: #D6D0C0;              /* Darkened from #E5E1D8 — was nearly invisible against white/cream */
-  --border-strong: #B8C2D0;       /* Darkened from #CBD5E1 to match */
+  --bg-table-even: #EEF2F6;
+  --bg-highlight: #DBEAFE;
+  --bg-highlight-text: #1D4ED8;
+  --text-main: #1E293B;
+  --text-muted: #475569;
+  --border: #CBD5E1;
+  --border-strong: #94A3B8;
   
-  /* BRAND COLORS */
-  --accent: #0F91CC;              /* Bright Logo Blue */
-  --accent-hover: #0C7AB3;
-  --accent-light: #E4F3FA;
-  --accent-dark: #00586E;         /* Dark Teal from 'ATTENDANCE' text */
+  /* BRAND COLORS – Indigo/Blue */
+  --accent: #3B82F6;
+  --accent-hover: #2563EB;
+  --accent-light: #DBEAFE;
+  --accent-dark: #1D4ED8;
   
-  --button-text: #FFFFFF;         /* Text on accent buttons */
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --button-text: #FFFFFF;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
   
-  --shadow-accent: rgba(15, 145, 204, 0.4);
-  --bg-accent-soft: rgba(15, 145, 204, 0.15);
+  --shadow-accent: rgba(59, 130, 246, 0.4);
+  --bg-accent-soft: rgba(59, 130, 246, 0.12);
 
-  /* Used by FingerprintKiosk.js's porthole glow (matched/no-match/scanning
-     states) — these were missing entirely, so that glow effect has been
-     silently rendering as an invalid, empty box-shadow (no visible glow). */
-  --shadow-green: rgba(91, 146, 121, 0.4);
-  --shadow-red: rgba(178, 96, 74, 0.4);
-  --shadow-gold: rgba(15, 145, 204, 0.4);   /* name kept for the kiosk's existing className references; matches the blue accent, not brass */
+  --shadow-green: rgba(16, 185, 129, 0.4);
+  --shadow-red: rgba(239, 68, 68, 0.4);
+  --shadow-gold: rgba(59, 130, 246, 0.4);
   
-  --accent-green: #5B9279;
-  --accent-green-hover: #4E8069;
-  --accent-red: #B2604A;
-  --accent-red-hover: #9E5340;
-  --bg-green-soft: rgba(91, 146, 121, 0.15);
-  --bg-red-soft: rgba(178, 96, 74, 0.15);
-  --stripe-color: rgba(0, 0, 0, 0.08);
-  --radial-glow: rgba(15, 145, 204, 0.06);
+  --accent-green: #10B981;
+  --accent-green-hover: #059669;
+  --accent-red: #EF4444;
+  --accent-red-hover: #DC2626;
+  --bg-green-soft: rgba(16, 185, 129, 0.12);
+  --bg-red-soft: rgba(239, 68, 68, 0.12);
+  --stripe-color: rgba(0,0,0,0.06);
+  --radial-glow: rgba(59, 130, 246, 0.08);
 
   /* ===== STATUS COLORS (LIGHT) ===== */
-  /* Present is the most common status in the grid, so it needs to actually
-     read as green at a glance — the previous value (#f0fdf4) was nearly
-     white and made the whole grid look unmarked/washed out, especially
-     next to the much bolder red/yellow/purple below it. */
-  --status-green-bg: #dcfce7;      /* Clearly visible pale green, matches the intensity of the other status colors */
-  --status-green-text: #15803d;    /* Dark forest green for readability */
-  --status-green-total: #16a34a;   /* Bright green for totals */
+  --status-green-bg: #D1FAE5;
+  --status-green-text: #065F46;
+  --status-green-total: #059669;
   
-  --status-red-bg: #fecaca;        /* Bright light red */
-  --status-red-text: #b91c1c;      /* Dark red */
+  --status-red-bg: #FEE2E2;
+  --status-red-text: #991B1B;
   
-  --status-yellow-bg: #fef9c3;     /* Bright light yellow (holidays use this) */
-  --status-yellow-text: #a16207;   /* Dark amber */
+  --status-yellow-bg: #FEF3C7;
+  --status-yellow-text: #92400E;
 
-  --status-blue-bg: #dbeafe;       /* "Late" now uses logo blue instead of the old amber */
-  --status-blue-text: #0F91CC;     /* Matches --accent exactly */
+  --status-blue-bg: #DBEAFE;
+  --status-blue-text: #1D4ED8;
   
-  --status-purple-bg: #e9d5ff;     /* Bright light purple */
-  --status-purple-text: #6b21a8;   /* Dark purple */
+  --status-purple-bg: #EDE9FE;
+  --status-purple-text: #5B21B6;
   
-  --status-slate-bg: #e2e8f0;      /* Light grey */
-  --status-slate-text: #334155;    /* Dark grey */
+  --status-slate-bg: #F1F5F9;
+  --status-slate-text: #475569;
   
-  --status-weekend-bg: #cbd5e1;    /* Muted grey for weekends */
-  --status-holiday-bg: #fde047;    /* Bright yellow for holidays */
+  --status-weekend-bg: #E2E8F0;
+  --status-holiday-bg: #FDE047;
 }
 
-/* Dark Mode overrides */
 [data-theme="dark"] {
-  --bg-body: #1B1E24;
-  --bg-card: #20242C;
-  --bg-header: #20242C;
-  --bg-input: #1B1E24;
-  --bg-table-even: #1B1E24;
-  --bg-highlight: #1B3342;       
-  --bg-highlight-text: #4DB8E8;
-  --text-main: #EDEAE2;
-  --text-muted: #8D9099;
-  --border: #3A3F4B;
-  --border-strong: #3A3F4B;
+  /* Dark Mode – Slate & Blue (unchanged, comfortable) */
+  --bg-body: #0F172A;
+  --bg-card: #1E293B;
+  --bg-header: #1E293B;
+  --bg-input: #0F172A;
+  --bg-table-even: #0F172A;
+  --bg-highlight: #1E3A5F;
+  --bg-highlight-text: #60A5FA;
+  --text-main: #F1F5F9;
+  --text-muted: #94A3B8;
+  --border: #334155;
+  --border-strong: #475569;
   
-  --accent: #4DB8E8;              /* Lighter blue for dark mode */
-  --accent-hover: #6BC5F0;
-  --accent-light: #1B3342;
-  --accent-dark: #0F91CC;
+  --accent: #3B82F6;
+  --accent-hover: #60A5FA;
+  --accent-light: #1E3A5F;
+  --accent-dark: #2563EB;
   
-  --button-text: #1B1E24;
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --button-text: #FFFFFF;
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
   
-  --shadow-accent: rgba(77, 184, 232, 0.4);
-  --bg-accent-soft: rgba(77, 184, 232, 0.2);
+  --shadow-accent: rgba(59, 130, 246, 0.4);
+  --bg-accent-soft: rgba(59, 130, 246, 0.15);
 
-  --shadow-green: rgba(91, 146, 121, 0.45);
-  --shadow-red: rgba(178, 96, 74, 0.45);
-  --shadow-gold: rgba(77, 184, 232, 0.4);
+  --shadow-green: rgba(16, 185, 129, 0.45);
+  --shadow-red: rgba(239, 68, 68, 0.45);
+  --shadow-gold: rgba(59, 130, 246, 0.4);
   
-  --bg-green-soft: rgba(91, 146, 121, 0.2);
-  --bg-red-soft: rgba(178, 96, 74, 0.2);
-  --stripe-color: rgba(255, 255, 255, 0.08);
-  --radial-glow: rgba(77, 184, 232, 0.06);
+  --bg-green-soft: rgba(16, 185, 129, 0.15);
+  --bg-red-soft: rgba(239, 68, 68, 0.15);
+  --stripe-color: rgba(255,255,255,0.06);
+  --radial-glow: rgba(59, 130, 246, 0.06);
 
   /* ===== SOFTER STATUS COLORS (DARK) ===== */
-  --status-green-bg: rgba(34, 197, 94, 0.15); /* Reduced opacity for subtlety */
-  --status-green-text: #4ade80;
-  --status-green-total: #4ade80;
+  --status-green-bg: rgba(16, 185, 129, 0.2);
+  --status-green-text: #34D399;
+  --status-green-total: #34D399;
 
-  --status-red-bg: rgba(248, 113, 113, 0.25);
-  --status-red-text: #f87171;
+  --status-red-bg: rgba(239, 68, 68, 0.25);
+  --status-red-text: #F87171;
 
   --status-yellow-bg: rgba(251, 191, 36, 0.25);
-  --status-yellow-text: #facc15;
+  --status-yellow-text: #FBBF24;
 
-  --status-blue-bg: rgba(77, 184, 232, 0.2);
-  --status-blue-text: #4DB8E8;     /* Matches --accent in dark mode */
+  --status-blue-bg: rgba(59, 130, 246, 0.2);
+  --status-blue-text: #60A5FA;
 
   --status-purple-bg: rgba(168, 85, 247, 0.25);
-  --status-purple-text: #c084fc;
+  --status-purple-text: #C084FC;
 
-  --status-slate-bg: rgba(148, 163, 184, 0.3);
-  --status-slate-text: #94a3b8;
+  --status-slate-bg: rgba(148, 163, 184, 0.2);
+  --status-slate-text: #94A3B8;
 
-  --status-weekend-bg: #2E333F;
-  --status-holiday-bg: #3A3F4B;
+  --status-weekend-bg: #2D3748;
+  --status-holiday-bg: #4B3D2A;
 }
 
-/* ===== THEME UTILITY CLASSES ===== */
+/* ===== THEME UTILITY CLASSES (unchanged) ===== */
 .bg-body      { background-color: var(--bg-body); }
 .bg-card      { background-color: var(--bg-card); }
 .bg-header    { background-color: var(--bg-header); }
@@ -165,10 +155,12 @@
 
 .shadow-theme { box-shadow: var(--shadow); }
 
+/* ===== THEME TRANSITION (smooth) ===== */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
 /* ===== CUSTOM SCROLLBAR (Global) ===== */
-/* Firefox uses a different, non-prefixed scrollbar API than the
-   ::-webkit- one below — without this, Firefox just ignores all of it and
-   falls back to the OS default scrollbar instead of matching the theme. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) var(--bg-body);

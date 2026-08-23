@@ -1,24 +1,24 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Large binaries and build artifacts – keep locally, never commit
+jre-win64/
+mtworld-wails/jre-win64/
+mtworld-wails/build/
+mtworld-wails/backend/fingerprint-matcher.jar
+fingerprint-matcher/target/
+public/*.bmp
+*.7z
+*.exe
+*.jar
+*.dll
+*.jsa
+*.lib
+*.pdb
+*.o
+*.so
+*.dylib
+*.iso
+*.zip
+*.tar.gz
+node_modules/
+dist/
+build/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "MT World Attendance Registrater",
+  "outputfilename": "MT World Attendance",
+  "icon": "icon.ico",                    
+  "frontend:install": "echo 'using pre-built frontend, nothing to install'",
+  "frontend:build": "echo 'using pre-built frontend — see SETUP.md step 3 for copying dist/ in'",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "Thabelo Tshishonga"
+  }
+}

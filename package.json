@@ -1,7 +1,7 @@
 {
   "name": "mt-world",
   "private": true,
-  "version": "0.0.21",
+  "version": "0.0.33",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -19,9 +19,10 @@
     "@emailjs/browser": "^4.4.1",
     "@tailwindcss/vite": "^4.3.0",
     "firebase": "^12.12.1",
+    "lucide-react": "^1.28.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "recharts": "^3.8.1",
+    "recharts": "^3.10.1",
     "tailwindcss": "^4.3.0",
     "usb": "^3.0.1",
     "ws": "^8.21.0"

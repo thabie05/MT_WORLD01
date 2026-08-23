@@ -56,50 +56,45 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen flex justify-center items-center bg-body text-main p-5 relative overflow-hidden font-['Inter',sans-serif]">
-      <div className="absolute w-[350px] h-[350px] bg-[radial-gradient(circle,rgba(59,130,246,0.3),transparent_70%)] rounded-full -top-32 -right-32 animate-float animate-pulse-slow" />
-      <div className="absolute w-[280px] h-[280px] bg-[radial-gradient(circle,rgba(139,92,246,0.3),transparent_70%)] rounded-full -bottom-28 -left-28 animate-float-reverse animate-pulse-slow" />
-      <div className="absolute w-[150px] h-[150px] bg-[radial-gradient(circle,rgba(34,197,94,0.2),transparent_70%)] rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-float animate-pulse-slow" />
+    <div className="w-full h-full flex items-center justify-center bg-body p-4 relative overflow-hidden font-['Inter',sans-serif]">
+      {/* Subtle glow decorations (optional) – kept but now they won't cause overflow */}
+      <div className="absolute w-[350px] h-[350px] bg-[radial-gradient(circle,rgba(59,130,246,0.2),transparent_70%)] rounded-full -top-32 -right-32 animate-float" />
+      <div className="absolute w-[280px] h-[280px] bg-[radial-gradient(circle,rgba(139,92,246,0.2),transparent_70%)] rounded-full -bottom-28 -left-28 animate-float" />
+      <div className="absolute w-[150px] h-[150px] bg-[radial-gradient(circle,rgba(34,197,94,0.15),transparent_70%)] rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-float" />
 
-      <div className="bg-card backdrop-blur-xl border border-main rounded-3xl p-10 w-full max-w-[420px] shadow-theme text-center relative z-10 animate-card-entry hover:-translate-y-1 transition-all">
-        <div className="absolute -inset-0.5 rounded-[26px] bg-gradient-to-r from-transparent via-accent/30 to-purple-500/30 via-transparent bg-[length:200%_200%] animate-border-glow opacity-0 hover:opacity-100 transition-opacity -z-10" />
-
-        {/* 🟢 YOUR LOGO HERE */}
+      <div className="bg-card backdrop-blur-sm border border-main rounded-3xl p-8 w-full max-w-[420px] shadow-theme text-center relative z-10 transition-all">
         <img 
           src="./logo.png" 
           alt="MT World Logo" 
-          className="h-16 w-auto object-contain mx-auto mb-4 animate-title-slide" 
+          className="h-14 w-auto object-contain mx-auto mb-3" 
         />
-
-        <p className="text-base text-muted tracking-[0.2em] uppercase mb-8 animate-title-slide">
+        <p className="text-sm text-muted tracking-[0.2em] uppercase mb-6">
           Attendance Register
         </p>
 
         <form onSubmit={handleSubmit}>
-          {/* Username */}
           <input
             type="text"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            className="w-full py-3.5 px-4 mb-4 bg-input border border-main rounded-2xl text-base text-main placeholder-muted outline-none transition-all focus:border-accent focus:shadow-[0_0_20px_rgba(59,130,246,0.3)] h-[52px] animate-input-slide"
+            className="w-full py-3 px-4 mb-3 bg-input border border-main rounded-xl text-sm text-main placeholder-muted outline-none transition-all focus:border-accent focus:shadow-[0_0_15px_rgba(59,130,246,0.25)]"
           />
 
-          {/* Password with show/hide toggle */}
-          <div className="relative mb-4 animate-input-slide">
+          <div className="relative mb-3">
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full py-3.5 px-4 pr-12 bg-input border border-main rounded-2xl text-base text-main placeholder-muted outline-none transition-all focus:border-accent focus:shadow-[0_0_20px_rgba(59,130,246,0.3)] h-[52px]"
+              className="w-full py-3 px-4 pr-11 bg-input border border-main rounded-xl text-sm text-main placeholder-muted outline-none transition-all focus:border-accent focus:shadow-[0_0_15px_rgba(59,130,246,0.25)]"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main transition-colors text-lg"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main transition-colors"
               tabIndex={-1}
             >
               {showPassword ? (
@@ -115,8 +110,7 @@ function Login({ onLogin }) {
             </button>
           </div>
 
-          {/* Remember Me */}
-          <div className="flex items-center justify-start mb-4">
+          <div className="flex items-center justify-start mb-3">
             <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
@@ -124,20 +118,19 @@ function Login({ onLogin }) {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="w-4 h-4 rounded border-main bg-input text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer"
               />
-              <span className="ml-2 text-sm text-muted">Remember this device</span>
+              <span className="ml-2 text-xs text-muted">Remember this device</span>
             </label>
           </div>
 
           {error && (
-            <p className="text-[var(--accent-red)] text-sm mb-3 bg-[var(--bg-red-soft)] px-4 py-2.5 rounded-xl border border-[var(--accent-red)]/30 animate-shake">{error}</p>
+            <p className="text-[var(--accent-red)] text-xs mb-3 bg-[var(--bg-red-soft)] px-4 py-2 rounded-xl border border-[var(--accent-red)]/30">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 btn-accent rounded-2xl text-base font-semibold tracking-wider relative overflow-hidden transition-all hover:opacity-90 active:scale-98 disabled:opacity-50 h-[52px] animate-button-slide group"
+            className="w-full py-3 btn-accent rounded-xl text-sm font-semibold tracking-wider transition-all hover:opacity-90 active:scale-98 disabled:opacity-50"
           >
-            <span className="absolute -top-1/2 -left-1/2 w-[200%] h-[200%] bg-gradient-to-r from-transparent via-white/15 to-transparent rotate-45 transition-all group-hover:left-full" />
             {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>

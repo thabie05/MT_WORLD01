@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
-import AttendanceRegister from './components/AttendanceRegister';
 import FingerprintKiosk from './components/FingerprintKiosk';
-import TitleBar from './components/TitleBar';          // ✅ Correct import
+import Dashboard from './components/Dashboard';
+import TitleBar from './components/TitleBar';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -34,17 +34,17 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-
+  // Kiosk mode – full‑screen, no dashboard
   if (params.kiosk) {
-    return (
-      <div className="flex flex-col h-screen overflow-hidden bg-body text-main font-['Inter',sans-serif]">
-        <TitleBar />
-        <div className="flex-1 overflow-auto">
-          <FingerprintKiosk />
-        </div>
+  return (
+    <div className="flex flex-col h-screen bg-body text-main font-['Inter',sans-serif] overflow-hidden">
+      <TitleBar />
+      <div className="flex-1 flex items-center justify-center overflow-hidden">
+        <FingerprintKiosk />
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (params.board) {
     window.location.href = window.location.pathname;
@@ -68,7 +68,7 @@ function App() {
       <TitleBar />
       <div className="flex-1 overflow-auto">
         {currentUser ? (
-          <AttendanceRegister currentUser={currentUser} onLogout={handleLogout} onPasswordChanged={() => {}} />
+          <Dashboard currentUser={currentUser} onLogout={handleLogout} />
         ) : (
           <Login onLogin={handleLogin} />
         )}
