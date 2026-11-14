@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { loadUsers } from '../data/users';
+import { verifyPassword, hashPassword } from '../utils/Passwords';
 
 const STORAGE_KEY = 'mtworld_users';
 
@@ -45,14 +46,14 @@ function PasswordChangeModal({ currentUser, onClose, onPasswordChanged }) {
         setSaving(false);
         return;
       }
-      if (users[userIndex].password !== currentPassword) {
+      if (!(await verifyPassword(users[userIndex].password, currentPassword))) {
         setError('Current password is incorrect.');
         setSaving(false);
         return;
       }
 
       // Update password
-      users[userIndex].password = newPassword;
+      users[userIndex] = { ...users[userIndex], password: await hashPassword(newPassword) };
 
       // Persist to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(users));

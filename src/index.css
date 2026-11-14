@@ -185,3 +185,13 @@
 ::-webkit-scrollbar-corner {
   background: var(--bg-body);
 }
+
+/* Red accent utility classes */
+.bg-accent-red { background-color: var(--accent-red); }
+.hover\:bg-accent-red-hover:hover { background-color: var(--accent-red-hover); }
+.text-accent-red { color: var(--accent-red); }
+.hover\:text-accent-red-hover:hover { color: var(--accent-red-hover); }
+
+/* Green accent utility classes (in case you use these too) */
+.bg-accent-green { background-color: var(--accent-green); }
+.hover\:bg-accent-green-hover:hover { background-color: var(--accent-green-hover); }

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { doc, collection, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
+import { loadUsers } from '../data/users';
+import { verifyPassword } from '../utils/Passwords';
 import { db } from '../firebase';
 import { recordFingerprintAction } from '../utils/attendanceWrites';
 import EnrollFingerprintModal from './EnrollFingerprintModal';
@@ -13,7 +15,76 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function AnalogClock({ now }) {
-  // ... (unchanged)
+  const seconds = now.getSeconds();
+  const minutes = now.getMinutes();
+  const hours = now.getHours() % 12;
+
+  const secDeg = seconds * 6;
+  const minDeg = minutes * 6 + seconds * 0.1;
+  const hourDeg = hours * 30 + minutes * 0.5;
+
+  const ticks = Array.from({ length: 12 }, (_, i) => i);
+
+  return (
+    <svg viewBox="0 0 200 200" className="w-40 h-40 md:w-48 md:h-48 drop-shadow-[0_4px_20px_rgba(59,130,246,0.2)]">
+      <circle cx="100" cy="100" r="96" fill="var(--bg-card)" stroke="var(--accent)" strokeWidth="3" />
+      <circle cx="100" cy="100" r="88" fill="none" stroke="var(--border-strong)" strokeWidth="1" />
+      {ticks.map((i) => {
+        const angle = (i * 30 * Math.PI) / 180;
+        const isQuarter = i % 3 === 0;
+        const r1 = isQuarter ? 74 : 80;
+        const r2 = 86;
+        const x1 = 100 + r1 * Math.sin(angle);
+        const y1 = 100 - r1 * Math.cos(angle);
+        const x2 = 100 + r2 * Math.sin(angle);
+        const y2 = 100 - r2 * Math.cos(angle);
+        return (
+          <line
+            key={i}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={isQuarter ? 'var(--accent)' : 'var(--text-muted)'}
+            strokeWidth={isQuarter ? 2.5 : 1.5}
+            strokeLinecap="round"
+          />
+        );
+      })}
+      <line
+        x1="100"
+        y1="100"
+        x2="100"
+        y2="58"
+        stroke="var(--text-main)"
+        strokeWidth="5"
+        strokeLinecap="round"
+        style={{ transformOrigin: '100px 100px', transform: `rotate(${hourDeg}deg)` }}
+      />
+      <line
+        x1="100"
+        y1="100"
+        x2="100"
+        y2="38"
+        stroke="var(--text-main)"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        style={{ transformOrigin: '100px 100px', transform: `rotate(${minDeg}deg)` }}
+      />
+      <line
+        x1="100"
+        y1="106"
+        x2="100"
+        y2="30"
+        stroke="var(--accent-red)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        className="clock-second-hand"
+        style={{ transformOrigin: '100px 100px', transform: `rotate(${secDeg}deg)` }}
+      />
+      <circle cx="100" cy="100" r="4.5" fill="var(--accent)" />
+    </svg>
+  );
 }
 
 function FingerprintKiosk() {
@@ -130,8 +201,20 @@ function FingerprintKiosk() {
   };
 
   const handleQuickAdd = async () => {
-    if (adminPassword !== 'admin123') {
-      setAdminError('Incorrect password');
+    // Check against the real admin accounts instead of a hard-coded password.
+    let users;
+    try {
+      const credSnap = await getDoc(doc(db, 'users', 'credentials'));
+      users = credSnap.exists() && credSnap.data().users?.length ? credSnap.data().users : loadUsers();
+    } catch {
+      users = loadUsers();
+    }
+    let isAdminPassword = false;
+    for (const u of users.filter((x) => x.role === 'admin')) {
+      if (await verifyPassword(u.password, adminPassword)) { isAdminPassword = true; break; }
+    }
+    if (!isAdminPassword) {
+      setAdminError('Incorrect admin password');
       return;
     }
     const name = newEmployeeName.trim();
@@ -321,7 +404,8 @@ function FingerprintKiosk() {
     };
   }, [handleSample, enrollingNewEmployee]);
 
-  const goHome = () => window.history.back();
+  // Go straight to the app root (works even if the kiosk was opened directly).
+  const goHome = () => window.location.assign(window.location.pathname);
 
   const canPickAction = status === 'ready' || status === 'no-match';
 

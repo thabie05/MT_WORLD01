@@ -3,14 +3,12 @@ import { doc, getDoc, setDoc, updateDoc, deleteField, arrayUnion, onSnapshot } f
 import { db } from '../firebase';
 import { getSAHolidays, monthNames } from '../utils/holidays';
 import PasswordChangeModal from './PasswordChangeModal';
-import StatsPage from './StatsPage';
-import HistoryModal from './HistoryModal';
 import EmployeeReportModal from './EmployeeReportModal';
 import ContextMenu from './ContextMenu';
 import AttendancePopup from './AttendancePopup';
-import EmailReportModal from './EmailReportModal';
 import ConfirmModal from './ConfirmModal';
 import EnrollFingerprintModal from './EnrollFingerprintModal';
+import AddEmployeeModal from './AddEmployeeModal';
 import { closeStaleShifts } from '../utils/attendanceWrites';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSyncStatus } from '../contexts/SyncStatusContext';
@@ -18,13 +16,7 @@ import { useSyncStatus } from '../contexts/SyncStatusContext';
 const AttendanceRegister = forwardRef((
   {
     currentUser,
-    showHistory,
-    setShowHistory,
-    onViewProfile,     
-    showStatsPage,
-    setShowStatsPage,
-    showEmailModal,
-    setShowEmailModal,
+    onViewProfile,
     showDeleted,
     setShowDeleted,
     lastEdit,
@@ -65,7 +57,7 @@ const AttendanceRegister = forwardRef((
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [newEmployeeName, setNewEmployeeName] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
   const isAdmin = currentUser.role === 'admin';
   const isUser = currentUser.role === 'user';
   const isViewer = currentUser.role === 'viewer';
@@ -296,20 +288,22 @@ const AttendanceRegister = forwardRef((
   };
 
   // ---------- Employee management ----------
-  const addEmployee = async () => {
-    const name = newEmployeeName.trim();
-    if (name === '') return;
+  // Called by AddEmployeeModal. Returns an error string on failure.
+  const addEmployee = async (details) => {
+    const name = details.name.trim();
+    if (name === '') return 'Employee name is required.';
     const isDuplicate = employees.some((emp) => emp.name.toLowerCase() === name.toLowerCase() && !emp.isDeleted);
-    if (isDuplicate) { setAddError('This employee already exists!'); setTimeout(() => setAddError(''), 3000); return; }
-    setAddError('');
-    const newEmployee = { id: Date.now().toString(), name, isDeleted: false };
-    const updatedEmployees = [...employees, newEmployee];
-    setEmployees(updatedEmployees);
-    setNewEmployeeName('');
+    if (isDuplicate) return 'This employee already exists!';
+    const newEmployee = { ...details, name, id: Date.now().toString(), isDeleted: false };
+    setEmployees((prev) => [...prev, newEmployee]);
     try {
-      const docRef = doc(db, 'rollcall', 'data');
-      await updateDoc(docRef, { employees: updatedEmployees });
-    } catch (err) { console.error('Failed to save new employee:', err); }
+      // arrayUnion adds just this employee instead of rewriting the whole list.
+      await updateDoc(doc(db, 'rollcall', 'data'), { employees: arrayUnion(newEmployee) });
+    } catch (err) {
+      console.error('Failed to save new employee:', err);
+      return 'Saved locally but failed to reach the cloud. It will retry when online.';
+    }
+    return null;
   };
 
   const softDeleteEmployee = async (id) => {
@@ -547,78 +541,27 @@ const AttendanceRegister = forwardRef((
     handleUndo,
   }));
 
-  // ---------- Stats & Reports ----------
-  const calculateStats = () => {
-    let presentCount = 0,
-      absentCount = 0,
-      lateCount = 0,
-      earlyCount = 0,
-      offCount = 0,
-      weekendCount = 0,
-      holidayCount = 0,
-      blankCount = 0;
-    for (const emp of employees) {
-      if (emp.isDeleted) continue;
-      for (const day of daysArray) {
-        if (isWeekend(day)) weekendCount++;
-        else if (isHoliday(day)) holidayCount++;
-        else if (isPresent(emp.id, day)) presentCount++;
-        else if (isLate(emp.id, day)) lateCount++;
-        else if (isEarly(emp.id, day)) earlyCount++;
-        else if (isOff(emp.id, day)) offCount++;
-        else if (isAbsent(emp.id, day)) absentCount++;
-        else blankCount++;
-      }
-    }
-    return [
-      { name: 'Present', value: presentCount, color: '#10B981' },
-      { name: 'Late', value: lateCount, color: '#3B82F6' },
-      { name: 'Early Leave', value: earlyCount, color: '#8B5CF6' },
-      { name: 'Absent', value: absentCount, color: '#EF4444' },
-      { name: 'Off Duty', value: offCount, color: '#6B7280' },
-      { name: 'Weekend', value: weekendCount, color: '#4B5563' },
-      { name: 'Holiday', value: holidayCount, color: '#FBBF24' },
-      { name: 'Unmarked', value: blankCount, color: '#374151' },
-    ].filter((d) => d.value > 0);
-  };
-
+  // ---------- Employee yearly report (feeds EmployeeReportModal) ----------
   const getEmployeeReport = (empId) => {
+    const holidays = getSAHolidays(currentYear);
     const months = [];
     for (let m = 0; m < 12; m++) {
       const daysInM = new Date(currentYear, m + 1, 0).getDate();
-      let present = 0,
-        absent = 0,
-        late = 0,
-        early = 0,
-        off = 0,
-        weekend = 0,
-        holiday = 0,
-        unmarked = 0;
+      const row = { month: monthNames[m], Present: 0, Late: 0, Early: 0, Absent: 0, OffDuty: 0, Weekend: 0, Holiday: 0, Unmarked: 0 };
       for (let d = 1; d <= daysInM; d++) {
-        const date = new Date(currentYear, m, d);
         const dateKey = `${currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const dow = date.getDay();
-        const isH = getSAHolidays(currentYear).some((h) => h.date === dateKey);
-        if (dow === 0 || dow === 6) weekend++;
-        else if (isH) holiday++;
-        else if (attendance[empId]?.[dateKey] === 'present') present++;
-        else if (attendance[empId]?.[dateKey] === 'late') late++;
-        else if (attendance[empId]?.[dateKey] === 'early') early++;
-        else if (attendance[empId]?.[dateKey] === 'off') off++;
-        else if (attendance[empId]?.[dateKey] === 'absent') absent++;
-        else unmarked++;
+        const dow = new Date(currentYear, m, d).getDay();
+        const status = attendance[empId]?.[dateKey];
+        if (dow === 0 || dow === 6) row.Weekend++;
+        else if (status === 'present') row.Present++;
+        else if (status === 'late') row.Late++;
+        else if (status === 'early') row.Early++;
+        else if (status === 'absent') row.Absent++;
+        else if (status === 'off') row.OffDuty++;
+        else if (holidays.some((h) => h.date === dateKey)) row.Holiday++;
+        else row.Unmarked++;
       }
-      months.push({
-        month: monthNames[m],
-        Present: present,
-        Late: late,
-        Early: early,
-        Absent: absent,
-        OffDuty: off,
-        Weekend: weekend,
-        Holiday: holiday,
-        Unmarked: unmarked,
-      });
+      months.push(row);
     }
     return months;
   };
@@ -664,25 +607,12 @@ const AttendanceRegister = forwardRef((
               {sortOrder === 'asc' ? '↓ A‑Z' : '↑ Z‑A'}
             </button>
             {isAdmin && (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Employee name"
-                  value={newEmployeeName}
-                  onChange={(e) => {
-                    setNewEmployeeName(e.target.value);
-                    setAddError('');
-                  }}
-                  onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
-                  className="py-1.5 px-3 bg-input border border-main rounded-md text-sm text-main placeholder-muted outline-none focus:border-accent"
-                />
-                <button
-                  onClick={addEmployee}
-                  className="bg-accent hover:bg-accent-hover text-white py-1.5 px-4 rounded-md text-sm font-medium transition"
-                >
-                  + Add
-                </button>
-              </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-accent hover:bg-accent-hover text-white py-1.5 px-4 rounded-md text-sm font-medium transition"
+              >
+                + Add Employee
+              </button>
             )}
           </div>
         </div>
@@ -741,10 +671,39 @@ const AttendanceRegister = forwardRef((
                       <tr key={emp.id} className="border-b border-main text-muted">
                         <td className="sticky left-0 bg-card py-2 px-2 text-sm">{index + 1}</td>
                         <td className="sticky left-[30px] bg-card py-2 px-3 text-sm line-through">{emp.name}</td>
-                        {daysArray.map((day) => (
-                          <td key={day} className="py-2 px-0.5 text-center text-sm">—</td>
-                        ))}
-                        <td className="py-2 px-2 text-center text-sm">—</td>
+                        {isAdmin ? (
+                          <td colSpan={daysArray.length + 1} className="py-2 px-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => restoreEmployee(emp.id)}
+                                className="bg-accent hover:bg-accent-hover text-white py-1 px-3 rounded-md text-xs font-medium transition"
+                              >
+                                ♻️ Restore
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setConfirmModal({
+                                    message: `Permanently delete "${emp.name}" and all their attendance? This cannot be undone.`,
+                                    onConfirm: () => {
+                                      permanentDeleteEmployee(emp.id);
+                                      setConfirmModal(null);
+                                    },
+                                  })
+                                }
+                                className="bg-input hover:bg-accent-light text-accent-red py-1 px-3 rounded-md text-xs font-medium transition border border-main"
+                              >
+                                🗑️ Delete forever
+                              </button>
+                            </div>
+                          </td>
+                        ) : (
+                          <>
+                            {daysArray.map((day) => (
+                              <td key={day} className="py-2 px-0.5 text-center text-sm">—</td>
+                            ))}
+                            <td className="py-2 px-2 text-center text-sm">—</td>
+                          </>
+                        )}
                       </tr>
                     );
                   }
@@ -957,7 +916,6 @@ const AttendanceRegister = forwardRef((
       </div>
 
       {/* ---------- Modals ---------- */}
-      {showHistory && <HistoryModal history={history} onClose={() => setShowHistory(false)} />}
       {showPasswordModal && (
         <PasswordChangeModal
           currentUser={currentUser}
@@ -974,7 +932,7 @@ const AttendanceRegister = forwardRef((
       setContextMenu(null);
     }}
     onViewProfile={() => {
-      onViewProfile(contextMenu.employee.id);
+      onViewProfile?.(contextMenu.employee.id);
       setContextMenu(null);
     }}
     onRename={() => startEditEmployee(contextMenu.employee)}
@@ -994,34 +952,12 @@ const AttendanceRegister = forwardRef((
     }}
   />
 )}
-      {selectedEmployee &&
-        (() => {
-          const reportData = getEmployeeReport(selectedEmployee.id);
-          if (!reportData) return null;
-          return (
-            <EmployeeReportModal
-              employee={selectedEmployee}
-              report={reportData}
-              year={currentYear}
-              onClose={() => setSelectedEmployee(null)}
-            />
-          );
-        })()}
-      {showEmailModal && (
-        <EmailReportModal
-          employees={employees.filter((emp) => !emp.isDeleted)}
-          attendance={attendance}
-          currentYear={currentYear}
-          currentMonth={currentMonth}
-          onClose={() => setShowEmailModal(false)}
-        />
-      )}
-      {showStatsPage && (
-        <StatsPage
-          stats={calculateStats()}
-          currentMonth={currentMonth}
-          currentYear={currentYear}
-          onClose={() => setShowStatsPage(false)}
+      {selectedEmployee && (
+        <EmployeeReportModal
+          employee={selectedEmployee}
+          report={getEmployeeReport(selectedEmployee.id)}
+          year={currentYear}
+          onClose={() => setSelectedEmployee(null)}
         />
       )}
       {confirmModal && (
@@ -1030,6 +966,9 @@ const AttendanceRegister = forwardRef((
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
         />
+      )}
+      {showAddModal && isAdmin && (
+        <AddEmployeeModal onClose={() => setShowAddModal(false)} onSave={addEmployee} />
       )}
       {enrollEmployee && (
         <EnrollFingerprintModal employee={enrollEmployee} onClose={() => setEnrollEmployee(null)} />
@@ -1043,6 +982,7 @@ const AttendanceRegister = forwardRef((
         onMark={markAttendance}
         isAdmin={isAdmin}
         isUser={isUser}
+        isViewer={isViewer}
         onConfirmClear={handleClearConfirm}
         isLocked={popup
           ? (() => {

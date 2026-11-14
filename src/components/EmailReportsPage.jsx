@@ -100,9 +100,11 @@ function EmailReportsPage({ employees, attendance, currentUser }) {
   };
 
   const buildEmailTable = (reportRows) => {
-    let tableHTML = `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;"><thead style="background:#1e293b;color:white;"><tr><th>#</th><th>Employee</th><th>✓ Present</th><th>⏰ Late</th><th>🚪 Early</th><th>✗ Absent</th><th>📋 Off Duty</th><th>Days Worked</th></tr></thead><tbody>`;
+    const cell = 'border:1px solid #94a3b8;padding:3px 8px;';
+    const head = 'border:1px solid #475569;padding:4px 8px;';
+    let tableHTML = `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;border:1px solid #94a3b8;"><thead style="background:#1e293b;color:white;"><tr><th style="${head}">#</th><th style="${head}text-align:left;">Employee</th><th style="${head}">✓ Present</th><th style="${head}">⏰ Late</th><th style="${head}">🚪 Early</th><th style="${head}">✗ Absent</th><th style="${head}">📋 Off Duty</th><th style="${head}">Days Worked</th></tr></thead><tbody>`;
     reportRows.forEach((row, i) => {
-      tableHTML += `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'};"><td style="text-align:center;">${i + 1}</td><td>${escapeHtml(row.name)}</td><td style="text-align:center;color:#22c55e;">${row.present}</td><td style="text-align:center;color:#f59e0b;">${row.late}</td><td style="text-align:center;color:#8b5cf6;">${row.early}</td><td style="text-align:center;color:#ef4444;">${row.absent}</td><td style="text-align:center;color:#94a3b8;">${row.off}</td><td style="text-align:center;font-weight:bold;">${row.total}</td></tr>`;
+      tableHTML += `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'};"><td style="${cell}text-align:center;">${i + 1}</td><td style="${cell}">${escapeHtml(row.name)}</td><td style="${cell}text-align:center;color:#22c55e;">${row.present}</td><td style="${cell}text-align:center;color:#f59e0b;">${row.late}</td><td style="${cell}text-align:center;color:#8b5cf6;">${row.early}</td><td style="${cell}text-align:center;color:#ef4444;">${row.absent}</td><td style="${cell}text-align:center;color:#94a3b8;">${row.off}</td><td style="${cell}text-align:center;font-weight:bold;">${row.total}</td></tr>`;
     });
     tableHTML += `</tbody></table>`;
     return tableHTML;
@@ -118,14 +120,14 @@ function EmailReportsPage({ employees, attendance, currentUser }) {
       const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff';
       tableRowsHTML += `
         <tr style="background:${bg};">
-          <td style="padding:12px;text-align:center;color:#6b7280;">${i + 1}</td>
-          <td style="padding:12px;font-weight:500;color:#1e293b;">${escapeHtml(row.name)}</td>
-          <td style="padding:12px;text-align:center;font-weight:500;color:${row.present > 0 ? '#16a34a' : '#9ca3af'};">${row.present}</td>
-          <td style="padding:12px;text-align:center;font-weight:500;color:${row.late > 0 ? '#f97316' : '#9ca3af'};">${row.late}</td>
-          <td style="padding:12px;text-align:center;font-weight:500;color:${row.early > 0 ? '#7c3aed' : '#9ca3af'};">${row.early}</td>
-          <td style="padding:12px;text-align:center;font-weight:500;color:${row.absent > 0 ? '#dc2626' : '#9ca3af'};">${row.absent}</td>
-          <td style="padding:12px;text-align:center;font-weight:500;color:${row.off > 0 ? '#4b5563' : '#9ca3af'};">${row.off}</td>
-          <td style="padding:12px;text-align:center;font-weight:700;color:#1e293b;background:#f8fafc;">${row.total}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:center;color:#6b7280;">${i + 1}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:500;color:#1e293b;">${escapeHtml(row.name)}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:center;font-weight:500;color:${row.present > 0 ? '#16a34a' : '#9ca3af'};">${row.present}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:center;font-weight:500;color:${row.late > 0 ? '#f97316' : '#9ca3af'};">${row.late}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:center;font-weight:500;color:${row.early > 0 ? '#7c3aed' : '#9ca3af'};">${row.early}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:center;font-weight:500;color:${row.absent > 0 ? '#dc2626' : '#9ca3af'};">${row.absent}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:center;font-weight:500;color:${row.off > 0 ? '#4b5563' : '#9ca3af'};">${row.off}</td>
+          <td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:center;font-weight:700;color:#1e293b;background:#f8fafc;">${row.total}</td>
         </tr>`;
     });
 
@@ -137,60 +139,60 @@ function EmailReportsPage({ employees, attendance, currentUser }) {
         <title>MT WORLD Attendance Report</title>
         <style>
           * { margin:0; padding:0; box-sizing:border-box; }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f3f4f6; }
-          .report-container { max-width:1000px; margin:30px auto; background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); overflow:hidden; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#fff; }
+          .report-container { max-width:1000px; margin:0 auto; background:#fff; overflow:hidden; }
           @media print { body { background:#fff; } .report-container { box-shadow:none; margin:0; } }
         </style>
       </head>
       <body>
         <div class="report-container">
-          <div style="background:#0f172a;color:#fff;padding:24px 30px;position:relative;">
+          <div style="background:#fff;color:#0f172a;padding:24px 30px;position:relative;border-bottom:2px solid #1e293b;">
             <img src="https://mtworldrollcall.web.app/logo.png" alt="MT WORLD Logo" style="position:absolute; top:24px; right:30px; max-height:60px;" />
             <h1 style="font-size:24px;font-weight:700;">MT WORLD Attendance Report</h1>
-            <div style="margin-top:12px;color:#cbd5e1;">
-              <p><span style="font-weight:600;color:#fff;">Period:</span> ${startDisplay} – ${endDisplay} (${daysInRange} calendar days)</p>
-              <p><span style="font-weight:600;color:#fff;">Total Employees:</span> ${employees.length}</p>
+            <div style="margin-top:12px;color:#475569;">
+              <p><span style="font-weight:600;color:#0f172a;">Period:</span> ${startDisplay} – ${endDisplay} (${daysInRange} calendar days)</p>
+              <p><span style="font-weight:600;color:#0f172a;">Total Employees:</span> ${employees.length}</p>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;padding:24px;border-bottom:1px solid #e5e7eb;">
-            <div style="display:flex;align-items:center;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #e5e7eb;">
-              <span style="font-size:20px;margin-right:10px;">✅</span>
-              <div><p style="font-size:12px;color:#6b7280;">Present</p><p style="font-size:18px;font-weight:700;color:#16a34a;">${totals.present}</p></div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:10px 24px;border-bottom:1px solid #e5e7eb;">
+            <div style="display:flex;align-items:center;padding:5px 10px;border-radius:8px;background:#f0fdf4;border:1px solid #e5e7eb;">
+              <span style="font-size:15px;margin-right:7px;">✅</span>
+              <div><p style="font-size:10px;line-height:1.2;color:#6b7280;white-space:nowrap;">Present</p><p style="font-size:14px;line-height:1.2;font-weight:700;color:#16a34a;">${totals.present}</p></div>
             </div>
-            <div style="display:flex;align-items:center;padding:16px;border-radius:8px;background:#fff7ed;border:1px solid #e5e7eb;">
-              <span style="font-size:20px;margin-right:10px;">⏰</span>
-              <div><p style="font-size:12px;color:#6b7280;">Late</p><p style="font-size:18px;font-weight:700;color:#f97316;">${totals.late}</p></div>
+            <div style="display:flex;align-items:center;padding:5px 10px;border-radius:8px;background:#fff7ed;border:1px solid #e5e7eb;">
+              <span style="font-size:15px;margin-right:7px;">⏰</span>
+              <div><p style="font-size:10px;line-height:1.2;color:#6b7280;white-space:nowrap;">Late</p><p style="font-size:14px;line-height:1.2;font-weight:700;color:#f97316;">${totals.late}</p></div>
             </div>
-            <div style="display:flex;align-items:center;padding:16px;border-radius:8px;background:#fefce8;border:1px solid #e5e7eb;">
-              <span style="font-size:20px;margin-right:10px;">🚪</span>
-              <div><p style="font-size:12px;color:#6b7280;">Early Leave</p><p style="font-size:18px;font-weight:700;color:#a16207;">${totals.early}</p></div>
+            <div style="display:flex;align-items:center;padding:5px 10px;border-radius:8px;background:#fefce8;border:1px solid #e5e7eb;">
+              <span style="font-size:15px;margin-right:7px;">🚪</span>
+              <div><p style="font-size:10px;line-height:1.2;color:#6b7280;white-space:nowrap;">Early Leave</p><p style="font-size:14px;line-height:1.2;font-weight:700;color:#a16207;">${totals.early}</p></div>
             </div>
-            <div style="display:flex;align-items:center;padding:16px;border-radius:8px;background:#fef2f2;border:1px solid #e5e7eb;">
-              <span style="font-size:20px;margin-right:10px;">❌</span>
-              <div><p style="font-size:12px;color:#6b7280;">Absent</p><p style="font-size:18px;font-weight:700;color:#dc2626;">${totals.absent}</p></div>
+            <div style="display:flex;align-items:center;padding:5px 10px;border-radius:8px;background:#fef2f2;border:1px solid #e5e7eb;">
+              <span style="font-size:15px;margin-right:7px;">❌</span>
+              <div><p style="font-size:10px;line-height:1.2;color:#6b7280;white-space:nowrap;">Absent</p><p style="font-size:14px;line-height:1.2;font-weight:700;color:#dc2626;">${totals.absent}</p></div>
             </div>
-            <div style="display:flex;align-items:center;padding:16px;border-radius:8px;background:#f9fafb;border:1px solid #e5e7eb;">
-              <span style="font-size:20px;margin-right:10px;">📋</span>
-              <div><p style="font-size:12px;color:#6b7280;">Off Duty</p><p style="font-size:18px;font-weight:700;color:#4b5563;">${totals.off}</p></div>
+            <div style="display:flex;align-items:center;padding:5px 10px;border-radius:8px;background:#f9fafb;border:1px solid #e5e7eb;">
+              <span style="font-size:15px;margin-right:7px;">📋</span>
+              <div><p style="font-size:10px;line-height:1.2;color:#6b7280;white-space:nowrap;">Off Duty</p><p style="font-size:14px;line-height:1.2;font-weight:700;color:#4b5563;">${totals.off}</p></div>
             </div>
-            <div style="display:flex;align-items:center;padding:16px;border-radius:8px;background:#eff6ff;border:1px solid #e5e7eb;">
-              <span style="font-size:20px;margin-right:10px;">📊</span>
-              <div><p style="font-size:12px;color:#6b7280;">Total Worked</p><p style="font-size:18px;font-weight:700;color:#2563eb;">${totals.total}</p></div>
+            <div style="display:flex;align-items:center;padding:5px 10px;border-radius:8px;background:#eff6ff;border:1px solid #e5e7eb;">
+              <span style="font-size:15px;margin-right:7px;">📊</span>
+              <div><p style="font-size:10px;line-height:1.2;color:#6b7280;white-space:nowrap;">Total Worked</p><p style="font-size:14px;line-height:1.2;font-weight:700;color:#2563eb;">${totals.total}</p></div>
             </div>
           </div>
           <div style="padding:24px;">
             <h2 style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:16px;">Detailed Report</h2>
-            <table style="width:100%;border-collapse:collapse;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid #94a3b8;">
               <thead>
                 <tr style="background:#1e293b;color:#fff;">
-                  <th style="padding:12px;border-radius:8px 0 0 0;font-weight:600;text-align:center;">#</th>
-                  <th style="padding:12px;font-weight:600;text-align:left;">Employee</th>
-                  <th style="padding:12px;font-weight:600;text-align:center;">✓ Present</th>
-                  <th style="padding:12px;font-weight:600;text-align:center;">⏰ Late</th>
-                  <th style="padding:12px;font-weight:600;text-align:center;">🚪 Early</th>
-                  <th style="padding:12px;font-weight:600;text-align:center;">✗ Absent</th>
-                  <th style="padding:12px;font-weight:600;text-align:center;">📋 Off Duty</th>
-                  <th style="padding:12px;border-radius:0 8px 0 0;font-weight:600;text-align:center;">Days Worked</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:center;">#</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:left;">Employee</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:center;">✓ Present</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:center;">⏰ Late</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:center;">🚪 Early</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:center;">✗ Absent</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:center;">📋 Off Duty</th>
+                  <th style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:600;text-align:center;">Days Worked</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,8 +201,7 @@ function EmailReportsPage({ employees, attendance, currentUser }) {
             </table>
           </div>
           <div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;border-top:1px solid #e5e7eb;">
-            This report was generated by MT WORLD Attendance Register.<br/>
-            Built by Thabelo Tshishonga
+            This report was generated by MT WORLD Attendance Register.
           </div>
         </div>
       </body>

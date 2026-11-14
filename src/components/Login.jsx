@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { loadUsers } from '../data/users';
+import { verifyPassword, hashPassword, isHashed } from '../utils/Passwords';
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -16,40 +17,51 @@ function Login({ onLogin }) {
     setLoading(true);
     setError('');
 
+    const finish = (user) => {
+      onLogin({
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        isSuperAdmin: user.isSuperAdmin === true,
+        rememberMe: rememberMe,
+      });
+    };
+
+    // Find the user and verify the password (supports old plain-text entries).
+    const authenticate = async (users) => {
+      const user = users.find((u) => u.username === username);
+      if (user && (await verifyPassword(user.password, password))) return user;
+      return null;
+    };
+
     try {
       const docRef = doc(db, 'users', 'credentials');
       const snap = await getDoc(docRef);
-      let users;
-      if (snap.exists() && snap.data().users && snap.data().users.length > 0) {
-        users = snap.data().users;
-      } else {
-        users = loadUsers();
-      }
-      const user = users.find((u) => u.username === username && u.password === password);
+      const fromCloud = snap.exists() && snap.data().users && snap.data().users.length > 0;
+      const users = fromCloud ? snap.data().users : loadUsers();
+      const user = await authenticate(users);
       if (user) {
-        onLogin({ 
-          username: user.username, 
-          fullName: user.fullName, 
-          role: user.role,
-          rememberMe: rememberMe 
-        });
+        // Upgrade any plain-text passwords to hashes the first time they log in.
+        if (fromCloud && !isHashed(user.password)) {
+          try {
+            const upgraded = await Promise.all(
+              users.map(async (u) => (u.username === user.username ? { ...u, password: await hashPassword(password) } : u))
+            );
+            await setDoc(docRef, { users: upgraded }, { merge: true });
+          } catch (upErr) {
+            console.error('Password upgrade failed (login still OK):', upErr);
+          }
+        }
+        finish(user);
       } else {
         setError('Invalid username or password');
       }
     } catch (err) {
       console.error('Failed to fetch users:', err);
-      const users = loadUsers();
-      const user = users.find((u) => u.username === username && u.password === password);
-      if (user) {
-        onLogin({ 
-          username: user.username, 
-          fullName: user.fullName, 
-          role: user.role,
-          rememberMe: rememberMe 
-        });
-      } else {
-        setError('Invalid username or password');
-      }
+      const user = await authenticate(loadUsers());
+      if (user) finish(user);
+      else setError('Invalid username or password');
     } finally {
       setLoading(false);
     }

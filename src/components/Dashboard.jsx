@@ -16,6 +16,7 @@ import {
   Clock,
   BarChart3,
   Mail,
+  Fingerprint,
   Settings,
   LogOut,
   Sun,
@@ -31,7 +32,6 @@ import {
   Database,
   HardDrive,
   Upload,
-  DollarSign,
 } from 'lucide-react';
 import { monthNames } from '../utils/holidays';
 
@@ -43,7 +43,6 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
 
   const [view, setView] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [openStatsAfterRegister, setOpenStatsAfterRegister] = useState(false);
 
   // Month/year for dashboard stats
   const today = new Date();
@@ -56,10 +55,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [dataManagementOpen, setDataManagementOpen] = useState(false);
 
-  // Modal states (some used by Register)
-  const [showHistory, setShowHistory] = useState(false);
-  const [showStatsPage, setShowStatsPage] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
+  // Register view state
   const [showDeleted, setShowDeleted] = useState(false);
   const [lastEdit, setLastEdit] = useState(null);
 
@@ -101,14 +97,6 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
     );
     return () => unsubscribe();
   }, []);
-
-  // Auto‑open stats after switching to register view
-  useEffect(() => {
-    if (view === 'register' && openStatsAfterRegister) {
-      setShowStatsPage(true);
-      setOpenStatsAfterRegister(false);
-    }
-  }, [view, openStatsAfterRegister]);
 
   // Metrics for the selected month/year (Dashboard)
   const metrics = useMemo(() => {
@@ -168,11 +156,13 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
     setView('register');
     setShowSettings(false);
   };
-  const handleGeneratePayroll = () => {
-    setView('register');
-    setOpenStatsAfterRegister(true);
+  const handleGenerateEmailReport = () => {
+    setView('email');
     setShowSettings(false);
   };
+
+  // Kiosk is its own full-screen mode (?kiosk=1)
+  const openKiosk = () => window.location.assign(`${window.location.origin}${window.location.pathname}?kiosk=1`);
 
   // Employee profile handler
   const openEmployeeProfile = (employeeId) => {
@@ -209,6 +199,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
     { id: 'history', label: 'History & Logs', icon: Clock },
     { id: 'stats', label: 'Analytics / Stats', icon: BarChart3 },
     { id: 'email', label: 'Email Reports', icon: Mail },
+    { id: 'kiosk', label: 'Fingerprint Kiosk', icon: Fingerprint },
   ];
   if (isAdmin) navItems.push({ id: 'settings', label: 'System Settings', icon: Settings });
 
@@ -222,14 +213,14 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
     } else if (id === 'history') {
       setView('history');
       setShowSettings(false);
-      setShowHistory(false);
     } else if (id === 'stats') {
       setView('stats');
       setShowSettings(false);
-      setShowStatsPage(false);
     } else if (id === 'email') {
       setView('email');
       setShowSettings(false);
+    } else if (id === 'kiosk') {
+      openKiosk();
     } else if (id === 'settings') {
       setView('dashboard');
       setShowSettings(true);
@@ -269,7 +260,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
             const Icon = item.icon;
             const isActive =
               (item.id === 'dashboard' && view === 'dashboard' && !showSettings) ||
-              (item.id === 'register' && view === 'register' && !showHistory && !showStatsPage && !showEmailModal) ||
+              (item.id === 'register' && view === 'register') ||
               (item.id === 'history' && view === 'history') ||
               (item.id === 'stats' && view === 'stats') ||
               (item.id === 'email' && view === 'email') ||
@@ -541,12 +532,20 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
                         <span className="ml-auto text-xs text-muted">Mark for any date</span>
                       </button>
                       <button
-                        onClick={handleGeneratePayroll}
+                        onClick={handleGenerateEmailReport}
                         className="w-full flex items-center gap-3 bg-input hover:bg-accent-light text-main px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border border-main"
                       >
-                        <DollarSign size={18} className="text-accent" />
-                        <span>Generate Payroll</span>
-                        <span className="ml-auto text-xs text-muted">Calculate salaries</span>
+                        <Mail size={18} className="text-accent" />
+                        <span>Generate Email Report</span>
+                        <span className="ml-auto text-xs text-muted">Send or export</span>
+                      </button>
+                      <button
+                        onClick={openKiosk}
+                        className="w-full flex items-center gap-3 bg-input hover:bg-accent-light text-main px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border border-main"
+                      >
+                        <Fingerprint size={18} className="text-accent" />
+                        <span>Fingerprint Kiosk</span>
+                        <span className="ml-auto text-xs text-muted">Clock in / out</span>
                       </button>
                     </div>
                   </div>
@@ -646,12 +645,6 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
                 <AttendanceRegister
                   ref={registerRef}
                   currentUser={currentUser}
-                  showHistory={showHistory}
-                  setShowHistory={setShowHistory}
-                  showStatsPage={showStatsPage}
-                  setShowStatsPage={setShowStatsPage}
-                  showEmailModal={showEmailModal}
-                  setShowEmailModal={setShowEmailModal}
                   showDeleted={showDeleted}
                   setShowDeleted={setShowDeleted}
                   lastEdit={lastEdit}

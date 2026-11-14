@@ -5,6 +5,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { SyncStatusProvider } from './contexts/SyncStatusContext';
 import './index.css';
 
+// TitleBar is rendered inside App.jsx — do NOT render it here too.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
