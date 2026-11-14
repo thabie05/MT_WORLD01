@@ -4,6 +4,14 @@
    (data-theme="dark") instead of the OS/browser's prefers-color-scheme. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Register the theme colours with Tailwind so utilities like bg-accent,
+   bg-accent/10 and hover:bg-accent-hover actually generate CSS. Before this,
+   those classes did nothing (e.g. the invisible "+ Add Employee" button). */
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+}
+
 /* ===== THEME VARIABLES ===== */
 :root {
   /* Light Mode – less bright, more comfortable */

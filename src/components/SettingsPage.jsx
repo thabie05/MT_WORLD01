@@ -148,7 +148,7 @@ function SettingsPage({ currentUser, onPasswordChange, onBackup, onRestore }) {
                       <p className="text-xs text-muted">{currentUser.email || currentUser.username}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-medium text-accent capitalize">{currentUser.role}</span>
+                  <span className="text-xs font-medium text-accent capitalize">{isSuper ? 'Super Admin' : currentUser.role}</span>
                 </div>
                 <button
                   onClick={onPasswordChange}

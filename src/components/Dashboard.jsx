@@ -34,6 +34,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { monthNames } from '../utils/holidays';
+import { isSuperAdmin } from '../utils/Passwords';
 
 function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
   const { theme, toggleTheme } = useTheme();
@@ -315,8 +316,12 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
       <div className="flex-1 flex flex-col overflow-hidden bg-body">
         {/* ===== TOP NAVBAR (optional – you can also include this in App.jsx) ===== */}
         {/* If you have a separate TitleBar, remove this section */}
-        <header className="sticky top-0 z-10 bg-card border-b border-main h-26 flex items-center justify-between px-4 md:px-6">
-          <div className="flex-1 flex justify-center">
+        <header className="sticky top-0 z-10 bg-card border-b border-main h-26 grid grid-cols-[1fr_auto_1fr] items-center px-4 md:px-6">
+          {/* Right: logo */}
+          <div className="order-3 flex items-center justify-end">
+            <img src="./logo.png" alt="MT World" className="h-12 w-auto object-contain" />
+          </div>
+          <div className="order-2 flex justify-center">
             <div className="flex flex-col items-center leading-tight">
               <span className="text-[10px] font-medium text-muted tracking-widest">EMPLOYEES</span>
               <span className="text-xl font-bold text-accent tracking-wide">ATTENDANCE</span>
@@ -324,7 +329,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
             </div>
           </div>
           {/* User dropdown - you can keep or remove if you have a title bar */}
-          <div className="flex items-center gap-3">
+          <div className="order-1 flex items-center justify-start gap-3">
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -337,12 +342,12 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
                 <ChevronDown size={16} className="text-muted" />
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-card border border-main rounded-lg shadow-theme overflow-hidden z-50">
+                <div className="absolute left-0 mt-2 w-56 bg-card border border-main rounded-lg shadow-theme overflow-hidden z-50">
                   <div className="py-1">
                     <div className="px-4 py-2 border-b border-main">
                       <p className="text-sm font-medium text-main">{currentUser.fullName}</p>
                       <p className="text-xs text-muted">{currentUser.email}</p>
-                      <p className="text-xs text-accent mt-1 capitalize">{currentUser.role}</p>
+                      <p className="text-xs text-accent mt-1 capitalize">{isSuperAdmin(currentUser) ? 'Super Admin' : currentUser.role}</p>
                     </div>
                     <button
                       onClick={() => { toggleTheme(); setDropdownOpen(false); }}
