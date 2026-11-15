@@ -53,8 +53,8 @@ function TitleBar() {
 
   return (
     <div
-      className="flex items-center justify-between h-9 select-none relative z-50 border-b-2 border-accent transition-colors duration-300"
-      style={{ '--wails-draggable': 'drag', background: 'linear-gradient(to right, var(--bg-card), var(--accent-light))' }}
+      className="flex items-center justify-between h-9 select-none relative z-50 bg-card transition-colors duration-300"
+      style={{ '--wails-draggable': 'drag' }}
     >
       {/* Left: brand mark, styled the same way the main header does it */}
       <div className="flex items-center gap-2 px-3 pointer-events-none" style={{ '--wails-draggable': 'drag' }}>

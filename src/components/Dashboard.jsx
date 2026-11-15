@@ -41,6 +41,8 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
   const { syncStatus } = useSyncStatus();
 
   const registerRef = useRef();
+  const userMenuRef = useRef(null);
+  const dataMenuRef = useRef(null);
 
   const [view, setView] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -68,6 +70,26 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
 
   // Employee profile
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+
+  // Close the dropdown menus when clicking elsewhere (or pressing Escape)
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setDropdownOpen(false);
+      if (dataMenuRef.current && !dataMenuRef.current.contains(e.target)) setDataManagementOpen(false);
+    };
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        setDropdownOpen(false);
+        setDataManagementOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, []);
 
   // Firestore listener
   useEffect(() => {
@@ -244,7 +266,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
       >
         {/* Sidebar header */}
         <div className="flex items-center justify-between h-26 px-4 border-b border-main relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('./background1.png')] bg-cover bg-center opacity-70 dark:opacity-70" />
+          <div className="absolute inset-0 bg-[url('/background1.png')] bg-cover bg-center opacity-70 dark:opacity-70" />
           <div className="flex items-center gap-2 relative z-10">
             {sidebarOpen && <span className="text-lg font-semibold tracking-tight text-main"> </span>}
           </div>
@@ -317,9 +339,57 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
         {/* ===== TOP NAVBAR (optional – you can also include this in App.jsx) ===== */}
         {/* If you have a separate TitleBar, remove this section */}
         <header className="sticky top-0 z-10 bg-card border-b border-main h-26 grid grid-cols-[1fr_auto_1fr] items-center px-4 md:px-6">
-          {/* Right: logo */}
-          <div className="order-3 flex items-center justify-end">
-            <img src="./logo.png" alt="MT World" className="h-12 w-auto object-contain" />
+          {/* Left: empty spacer so the title stays centred */}
+          <div className="order-1" />
+          {/* Right: logo with the user menu underneath */}
+          <div className="order-3 flex flex-col items-end justify-center gap-1">
+            <img src="./logo.png" alt="MT World" className="h-14 w-auto object-contain" />
+            <div className="flex items-center justify-end">
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-1.5 text-xs text-main hover:bg-accent-light rounded-lg px-1.5 py-0.5 transition-colors"
+                >
+                  <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-white font-semibold text-[10px]">
+                    {currentUser.fullName?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <span className="hidden md:inline">{currentUser.fullName}</span>
+                  <ChevronDown size={12} className="text-muted" />
+                </button>
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-1 w-56 bg-card border border-main rounded-lg shadow-theme overflow-hidden z-50">
+                    <div className="py-1">
+                      <div className="px-4 py-2 border-b border-main">
+                        <p className="text-sm font-medium text-main">{currentUser.fullName}</p>
+                        <p className="text-xs text-muted">{currentUser.email}</p>
+                        <p className="text-xs text-accent mt-1 capitalize">{isSuperAdmin(currentUser) ? 'Super Admin' : currentUser.role}</p>
+                      </div>
+                      <button
+                        onClick={() => { toggleTheme(); setDropdownOpen(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted hover:bg-accent-light hover:text-main transition-colors"
+                      >
+                        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                      </button>
+                      <button
+                        onClick={() => { handlePasswordChange(); setDropdownOpen(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted hover:bg-accent-light hover:text-main transition-colors"
+                      >
+                        <Settings size={16} />
+                        Change Password
+                      </button>
+                      <button
+                        onClick={() => { onLogout(); setDropdownOpen(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-accent-red hover:bg-red-100 hover:text-accent-red-hover dark:hover:bg-red-900/30 transition-colors border-t border-main"
+                      >
+                        <LogOut size={16} />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <div className="order-2 flex justify-center">
             <div className="flex flex-col items-center leading-tight">
@@ -328,53 +398,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
               <span className="text-[10px] font-medium text-muted tracking-[0.2em]">R E G I S T E R</span>
             </div>
           </div>
-          {/* User dropdown - you can keep or remove if you have a title bar */}
-          <div className="order-1 flex items-center justify-start gap-3">
-            <div className="relative">
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2 text-sm text-main hover:bg-accent-light rounded-lg px-2 py-1.5 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white font-semibold text-xs">
-                  {currentUser.fullName?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <span className="hidden md:inline">{currentUser.fullName}</span>
-                <ChevronDown size={16} className="text-muted" />
-              </button>
-              {dropdownOpen && (
-                <div className="absolute left-0 mt-2 w-56 bg-card border border-main rounded-lg shadow-theme overflow-hidden z-50">
-                  <div className="py-1">
-                    <div className="px-4 py-2 border-b border-main">
-                      <p className="text-sm font-medium text-main">{currentUser.fullName}</p>
-                      <p className="text-xs text-muted">{currentUser.email}</p>
-                      <p className="text-xs text-accent mt-1 capitalize">{isSuperAdmin(currentUser) ? 'Super Admin' : currentUser.role}</p>
-                    </div>
-                    <button
-                      onClick={() => { toggleTheme(); setDropdownOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted hover:bg-accent-light hover:text-main transition-colors"
-                    >
-                      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                      {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                    </button>
-                    <button
-                      onClick={() => { handlePasswordChange(); setDropdownOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted hover:bg-accent-light hover:text-main transition-colors"
-                    >
-                      <Settings size={16} />
-                      Change Password
-                    </button>
-                    <button
-                      onClick={() => { onLogout(); setDropdownOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-accent-red hover:bg-red-100 hover:text-accent-red-hover dark:hover:bg-red-900/30 transition-colors border-t border-main"
-                    >
-                      <LogOut size={16} />
-                      Logout
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+
         </header>
 
         {/* ===== PAGE CONTENT ===== */}
@@ -595,7 +619,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
                         </button>
                       )}
 
-                      <div className="relative">
+                      <div className="relative" ref={dataMenuRef}>
                         <button
                           onClick={() => setDataManagementOpen(!dataManagementOpen)}
                           className="bg-input text-main py-1.5 px-3 rounded-md text-sm font-medium hover:bg-accent-light transition flex items-center gap-2 border border-main"

@@ -22,3 +22,12 @@ node_modules/
 dist/
 build/
 .DS_Store
+
+# Keep the custom Wails installer template; ignore other generated build files.
+!mtworld-wails/build/
+mtworld-wails/build/*
+!mtworld-wails/build/windows/
+mtworld-wails/build/windows/*
+!mtworld-wails/build/windows/installer/
+mtworld-wails/build/windows/installer/*
+!mtworld-wails/build/windows/installer/project.nsi
