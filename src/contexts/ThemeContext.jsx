@@ -2,16 +2,21 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext();
 
+const KEY = 'mtworld_theme_session';
+
+// The app opens in light mode each time it is launched. A theme chosen during
+// the session is kept in sessionStorage, so it survives page reloads such as
+// going to the Fingerprint Kiosk and back, but resets when the app is closed.
+const readSession = () => {
+  try { return sessionStorage.getItem(KEY) || 'light'; } catch { return 'light'; }
+};
+
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('mtworld_theme');
-    return saved || 'dark'; // default to dark
-  });
+  const [theme, setTheme] = useState(readSession);
 
   useEffect(() => {
-    // Apply the theme to the <html> element
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('mtworld_theme', theme);
+    try { sessionStorage.setItem(KEY, theme); } catch { /* ignore */ }
   }, [theme]);
 
   const toggleTheme = () => {

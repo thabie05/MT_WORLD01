@@ -41,7 +41,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
   const dataMenuRef = useRef(null);
 
   const [view, setView] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Month/year for dashboard stats
   const today = new Date();
@@ -281,10 +281,8 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
     <div className="flex flex-col overflow-hidden bg-body text-main font-sans h-full">
       {/* ===== HEADER (full width, sits above the sidebar) ===== */}
       <header className="flex-shrink-0 z-20 bg-card border-b border-main h-26 flex items-stretch">
-        {/* Banner image + sidebar toggle – same spot as before, now in the header */}
-        <div
-          className="w-64 flex-shrink-0 relative overflow-hidden"
-        >
+        {/* Banner image – stays full width even when the sidebar is closed */}
+        <div className="w-64 flex-shrink-0 relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('/background1.png')] bg-cover bg-center opacity-70 dark:opacity-70" />
         </div>
 
