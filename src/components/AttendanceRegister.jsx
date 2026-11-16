@@ -288,6 +288,27 @@ const AttendanceRegister = forwardRef((
   };
 
   // ---------- Employee management ----------
+  // Writes an audit entry (add / edit / delete / restore) to history.
+  const logEmployeeAudit = async (status, emp, note = '') => {
+    const now = new Date();
+    const entry = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      employeeId: emp?.id || '',
+      employeeName: emp?.name || 'Unknown',
+      day: now.getDate(),
+      date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      status,
+      note,
+      editor: currentUser.fullName,
+      editedAt: now.toISOString(),
+      type: 'employee',
+    };
+    setHistory((prev) => [entry, ...prev]);
+    try {
+      await updateDoc(doc(db, 'rollcall', 'data'), { history: arrayUnion(entry) });
+    } catch (err) { console.error('Failed to write audit entry:', err); }
+  };
+
   // Called by AddEmployeeModal. Returns an error string on failure.
   const addEmployee = async (details) => {
     const name = details.name.trim();
@@ -299,8 +320,10 @@ const AttendanceRegister = forwardRef((
     try {
       // arrayUnion adds just this employee instead of rewriting the whole list.
       await updateDoc(doc(db, 'rollcall', 'data'), { employees: arrayUnion(newEmployee) });
+      await logEmployeeAudit('Employee Added', newEmployee, [newEmployee.position, newEmployee.department].filter(Boolean).join(' · '));
     } catch (err) {
       console.error('Failed to save new employee:', err);
+      logEmployeeAudit('Employee Added', newEmployee);
       return 'Saved locally but failed to reach the cloud. It will retry when online.';
     }
     return null;
@@ -308,10 +331,12 @@ const AttendanceRegister = forwardRef((
 
   const softDeleteEmployee = async (id) => {
     if (!isAdmin) return;
+    const target = employees.find((emp) => emp.id === id);
     const updatedEmployees = employees.map((emp) =>
       emp.id === id ? { ...emp, isDeleted: true } : emp
     );
     setEmployees(updatedEmployees);
+    logEmployeeAudit('Employee Deleted', target, 'Moved to trash');
     try {
       const docRef = doc(db, 'rollcall', 'data');
       await updateDoc(docRef, { employees: updatedEmployees });
@@ -320,10 +345,12 @@ const AttendanceRegister = forwardRef((
 
   const restoreEmployee = async (id) => {
     if (!isAdmin) return;
+    const target = employees.find((emp) => emp.id === id);
     const updatedEmployees = employees.map((emp) =>
       emp.id === id ? { ...emp, isDeleted: false } : emp
     );
     setEmployees(updatedEmployees);
+    logEmployeeAudit('Employee Restored', target, 'Restored from trash');
     try {
       const docRef = doc(db, 'rollcall', 'data');
       await updateDoc(docRef, { employees: updatedEmployees });
@@ -332,6 +359,8 @@ const AttendanceRegister = forwardRef((
 
   const permanentDeleteEmployee = async (id) => {
     if (!isAdmin) return;
+    const target = employees.find((emp) => emp.id === id);
+    logEmployeeAudit('Employee Deleted', target, 'Permanently deleted');
     const updatedEmployees = employees.filter((emp) => emp.id !== id);
     setEmployees(updatedEmployees);
     setAttendance((prev) => { const updated = { ...prev }; delete updated[id]; return updated; });
@@ -359,10 +388,13 @@ const AttendanceRegister = forwardRef((
       (emp) => emp.id !== editEmployeeId && emp.name.toLowerCase() === newName.toLowerCase() && !emp.isDeleted
     );
     if (isDuplicate) { alert('An employee with this name already exists!'); return; }
+    const oldEmp = employees.find((emp) => emp.id === editEmployeeId);
+    if (oldEmp && oldEmp.name === newName) { setEditEmployeeId(null); setEditEmployeeName(''); return; }
     const updatedEmployees = employees.map((emp) =>
       emp.id === editEmployeeId ? { ...emp, name: newName } : emp
     );
     setEmployees(updatedEmployees);
+    logEmployeeAudit('Employee Edited', { ...oldEmp, name: newName }, `Name: "${oldEmp?.name}" → "${newName}"`);
     setEditEmployeeId(null);
     setEditEmployeeName('');
     try {

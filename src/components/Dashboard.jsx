@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useTheme } from '../contexts/ThemeContext';
 import { useSyncStatus } from '../contexts/SyncStatusContext';
 import AttendanceRegister from './AttendanceRegister';
 import SettingsPage from './SettingsPage';
@@ -19,8 +18,6 @@ import {
   Fingerprint,
   Settings,
   LogOut,
-  Sun,
-  Moon,
   Bell,
   ChevronDown,
   Menu,
@@ -37,7 +34,6 @@ import { monthNames } from '../utils/holidays';
 import { isSuperAdmin } from '../utils/Passwords';
 
 function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
-  const { theme, toggleTheme } = useTheme();
   const { syncStatus } = useSyncStatus();
 
   const registerRef = useRef();
@@ -210,10 +206,35 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
   }
 
   const updateEmployee = (updatedEmployee) => {
-  setEmployees((prev) =>
-    prev.map((emp) => (emp.id === updatedEmployee.id ? updatedEmployee : emp))
-  );
-};
+    const old = employees.find((emp) => emp.id === updatedEmployee.id);
+    setEmployees((prev) =>
+      prev.map((emp) => (emp.id === updatedEmployee.id ? updatedEmployee : emp))
+    );
+    // Audit trail: record which fields changed
+    if (old) {
+      const labels = { email: 'Email', phone: 'Phone', address: 'Address', position: 'Position', department: 'Department', startDate: 'Start date', cv: 'CV' };
+      const changes = Object.keys(labels)
+        .filter((k) => (old[k] || '') !== (updatedEmployee[k] || ''))
+        .map((k) => k === 'cv' ? 'CV updated' : `${labels[k]}: "${old[k] || '—'}" → "${updatedEmployee[k] || '—'}"`);
+      if (changes.length) {
+        const now = new Date();
+        const entry = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          employeeId: updatedEmployee.id,
+          employeeName: updatedEmployee.name,
+          day: now.getDate(),
+          date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+          status: 'Employee Edited',
+          note: changes.join('; '),
+          editor: currentUser.fullName,
+          editedAt: now.toISOString(),
+          type: 'employee',
+        };
+        setHistory((prev) => [entry, ...prev]);
+        updateDoc(doc(db, 'rollcall', 'data'), { history: arrayUnion(entry) }).catch((e) => console.error('Audit write failed:', e));
+      }
+    }
+  };
 
   // Navigation items
   const navItems = [
@@ -257,28 +278,44 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
   }
 
   return (
-    <div className="flex overflow-hidden bg-body text-main font-sans h-full">
-      {/* ===== SIDEBAR ===== */}
-      <aside
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-16'
-        } bg-card border-main transition-all duration-300 flex-shrink-0 flex flex-col overflow-hidden`}
-      >
-        {/* Sidebar header */}
-        <div className="flex items-center justify-between h-26 px-4 border-b border-main relative overflow-hidden">
+    <div className="flex flex-col overflow-hidden bg-body text-main font-sans h-full">
+      {/* ===== HEADER (full width, sits above the sidebar) ===== */}
+      <header className="flex-shrink-0 z-20 bg-card border-b border-main h-26 flex items-stretch">
+        {/* Banner image + sidebar toggle – same spot as before, now in the header */}
+        <div
+          className="w-64 flex-shrink-0 relative overflow-hidden"
+        >
           <div className="absolute inset-0 bg-[url('/background1.png')] bg-cover bg-center opacity-70 dark:opacity-70" />
-          <div className="flex items-center gap-2 relative z-10">
-            {sidebarOpen && <span className="text-lg font-semibold tracking-tight text-main"> </span>}
-          </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-black dark:text-white hover:text-black/70 dark:hover:text-white/70 transition-colors p-1 border bg-card border-main rounded-lg hover:bg-accent-light relative z-10"
-          >
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
+        <div className="flex-1 grid grid-cols-[1fr_auto_1fr] items-center px-4 md:px-6">
+          <div />
+          <div className="flex flex-col items-center leading-tight">
+            <span className="text-[10px] font-medium text-muted tracking-widest">EMPLOYEES</span>
+            <span className="text-xl font-bold text-accent tracking-wide">ATTENDANCE</span>
+            <span className="text-[10px] font-medium text-muted tracking-[0.2em]">R E G I S T E R</span>
+          </div>
+          <div className="flex items-center justify-end">
+            <img src="./logo.png" alt="MT World" className="h-14 w-auto object-contain" />
+          </div>
+        </div>
+      </header>
+
+      {/* ===== BODY: sidebar starts under the header ===== */}
+      <div className="flex flex-1 overflow-hidden">
+        <aside
+          className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-card border-main transition-all duration-300 flex-shrink-0 flex flex-col overflow-hidden`}
+        >
+          <div className={`flex px-2 pt-2 ${sidebarOpen ? 'justify-end' : 'justify-center'}`}>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="text-black dark:text-white hover:text-black/70 dark:hover:text-white/70 transition-colors p-1.5 rounded-lg hover:bg-accent-light"
+            >
+              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -308,15 +345,6 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
           <div className="border-t border-main my-2" />
 
           <button
-            onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted hover:bg-accent-light hover:text-main hover:scale-[1.02] hover:shadow-sm transition-all duration-200"
-            title={!sidebarOpen ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : ''}
-          >
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            {sidebarOpen && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
-          </button>
-
-          <button
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-accent-red hover:bg-red-100 hover:text-accent-red-hover hover:scale-[1.02] hover:shadow-sm dark:hover:bg-red-900/30 transition-all duration-200"
             title={!sidebarOpen ? 'Logout' : ''}
@@ -326,81 +354,53 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
           </button>
         </nav>
 
-        {sidebarOpen && (
-          <div className="border-t border-main p-4 text-sm">
-            <p className="font-medium text-main truncate">{currentUser.fullName}</p>
-            <p className="text-muted truncate text-xs">{currentUser.email}</p>
-          </div>
-        )}
-      </aside>
-
-      {/* ===== MAIN CONTENT ===== */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-body">
-        {/* ===== TOP NAVBAR (optional – you can also include this in App.jsx) ===== */}
-        {/* If you have a separate TitleBar, remove this section */}
-        <header className="sticky top-0 z-10 bg-card border-b border-main h-26 grid grid-cols-[1fr_auto_1fr] items-center px-4 md:px-6">
-          {/* Left: empty spacer so the title stays centred */}
-          <div className="order-1" />
-          {/* Right: logo with the user menu underneath */}
-          <div className="order-3 flex flex-col items-end justify-center gap-1">
-            <img src="./logo.png" alt="MT World" className="h-14 w-auto object-contain" />
-            <div className="flex items-center justify-end">
-              <div className="relative" ref={userMenuRef}>
+        {/* User menu – bottom left */}
+        <div className="border-t border-main p-2" ref={userMenuRef}>
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="w-full flex items-center gap-2 text-xs text-main hover:bg-accent-light rounded-lg px-2 py-1.5 transition-colors"
+            title={!sidebarOpen ? currentUser.fullName : ''}
+          >
+            <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-white font-semibold text-[11px] flex-shrink-0">
+              {currentUser.fullName?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            {sidebarOpen && (
+              <>
+                <span className="truncate flex-1 text-left">{currentUser.fullName}</span>
+                <ChevronDown size={12} className={`text-muted transition-transform ${dropdownOpen ? '' : 'rotate-180'}`} />
+              </>
+            )}
+          </button>
+          {dropdownOpen && (
+            <div className="fixed left-2 bottom-16 w-56 bg-card border border-main rounded-lg shadow-theme overflow-hidden z-50">
+              <div className="py-1">
+                <div className="px-4 py-2 border-b border-main">
+                  <p className="text-sm font-medium text-main">{currentUser.fullName}</p>
+                  <p className="text-xs text-muted">{currentUser.email}</p>
+                  <p className="text-xs text-accent mt-1 capitalize">{isSuperAdmin(currentUser) ? 'Super Admin' : currentUser.role}</p>
+                </div>
                 <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-1.5 text-xs text-main hover:bg-accent-light rounded-lg px-1.5 py-0.5 transition-colors"
+                  onClick={() => { handlePasswordChange(); setDropdownOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted hover:bg-accent-light hover:text-main transition-colors"
                 >
-                  <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-white font-semibold text-[10px]">
-                    {currentUser.fullName?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <span className="hidden md:inline">{currentUser.fullName}</span>
-                  <ChevronDown size={12} className="text-muted" />
+                  <Settings size={16} />
+                  Change Password
                 </button>
-                {dropdownOpen && (
-                  <div className="absolute right-0 mt-1 w-56 bg-card border border-main rounded-lg shadow-theme overflow-hidden z-50">
-                    <div className="py-1">
-                      <div className="px-4 py-2 border-b border-main">
-                        <p className="text-sm font-medium text-main">{currentUser.fullName}</p>
-                        <p className="text-xs text-muted">{currentUser.email}</p>
-                        <p className="text-xs text-accent mt-1 capitalize">{isSuperAdmin(currentUser) ? 'Super Admin' : currentUser.role}</p>
-                      </div>
-                      <button
-                        onClick={() => { toggleTheme(); setDropdownOpen(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted hover:bg-accent-light hover:text-main transition-colors"
-                      >
-                        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                      </button>
-                      <button
-                        onClick={() => { handlePasswordChange(); setDropdownOpen(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-muted hover:bg-accent-light hover:text-main transition-colors"
-                      >
-                        <Settings size={16} />
-                        Change Password
-                      </button>
-                      <button
-                        onClick={() => { onLogout(); setDropdownOpen(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-accent-red hover:bg-red-100 hover:text-accent-red-hover dark:hover:bg-red-900/30 transition-colors border-t border-main"
-                      >
-                        <LogOut size={16} />
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <button
+                  onClick={() => { onLogout(); setDropdownOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-accent-red hover:bg-red-100 hover:text-accent-red-hover dark:hover:bg-red-900/30 transition-colors border-t border-main"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
               </div>
             </div>
-          </div>
-          <div className="order-2 flex justify-center">
-            <div className="flex flex-col items-center leading-tight">
-              <span className="text-[10px] font-medium text-muted tracking-widest">EMPLOYEES</span>
-              <span className="text-xl font-bold text-accent tracking-wide">ATTENDANCE</span>
-              <span className="text-[10px] font-medium text-muted tracking-[0.2em]">R E G I S T E R</span>
-            </div>
-          </div>
+          )}
+        </div>
+        </aside>
 
-        </header>
-
+        {/* ===== MAIN CONTENT ===== */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-body">
         {/* ===== PAGE CONTENT ===== */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-[1920px] mx-auto w-full flex flex-col gap-6">
@@ -683,6 +683,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
               </>
             )}
           </div>
+        </div>
         </div>
       </div>
 

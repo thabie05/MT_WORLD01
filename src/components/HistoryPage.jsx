@@ -11,6 +11,10 @@ import {
   Clock as ClockIcon,
   DoorOpen,
   Users,
+  UserPlus,
+  UserCog,
+  UserMinus,
+  RotateCcw,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -75,6 +79,10 @@ function HistoryPage({ history }) {
     if (s === 'early' || s === 'early leave') return 'text-purple-400 bg-purple-500/20';
     if (s === 'off duty') return 'text-gray-400 bg-gray-500/20';
     if (s === 'cleared' || s === 'undo') return 'text-yellow-400 bg-yellow-500/20';
+    if (s === 'employee added') return 'text-emerald-400 bg-emerald-500/20';
+    if (s === 'employee edited') return 'text-blue-400 bg-blue-500/20';
+    if (s === 'employee deleted') return 'text-red-400 bg-red-500/20';
+    if (s === 'employee restored') return 'text-purple-400 bg-purple-500/20';
     return 'text-muted bg-input';
   };
 
@@ -86,6 +94,10 @@ function HistoryPage({ history }) {
     if (s === 'early' || s === 'early leave') return <DoorOpen size={14} />;
     if (s === 'off duty') return <Users size={14} />;
     if (s === 'cleared' || s === 'undo') return <AlertCircle size={14} />;
+    if (s === 'employee added') return <UserPlus size={14} />;
+    if (s === 'employee edited') return <UserCog size={14} />;
+    if (s === 'employee deleted') return <UserMinus size={14} />;
+    if (s === 'employee restored') return <RotateCcw size={14} />;
     return <Clock size={14} />;
   };
 
@@ -203,7 +215,7 @@ function HistoryPage({ history }) {
                 filteredHistory.map((entry, idx) => (
                   <tr key={entry.id || idx} className="border-b border-main/50 hover:bg-accent-light/30 transition-colors">
                     <td className="py-2 px-3 text-muted text-xs whitespace-nowrap">
-                      {formatTime(entry.editedAt)}
+                      {entry.editedAt ? new Date(entry.editedAt).toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' : ''}{formatTime(entry.editedAt)}
                     </td>
                     <td className="py-2 px-3 font-medium text-main">
                       {entry.employeeName || 'Unknown'}
@@ -220,7 +232,7 @@ function HistoryPage({ history }) {
                     <td className="py-2 px-3 text-muted text-sm">
                       {entry.editor || 'System'}
                     </td>
-                    <td className="py-2 px-3 text-muted text-sm max-w-[150px] truncate">
+                    <td className="py-2 px-3 text-muted text-sm max-w-[320px] break-words">
                       {entry.note || '—'}
                     </td>
                   </tr>
