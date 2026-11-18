@@ -19,8 +19,8 @@ function PasswordChangeModal({ currentUser, onClose, onPasswordChanged }) {
     setError('');
     setSuccess('');
 
-    if (newPassword.length < 4) {
-      setError('New password must be at least 4 characters.');
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -107,7 +107,7 @@ function PasswordChangeModal({ currentUser, onClose, onPasswordChanged }) {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              placeholder="Enter new password (min 4 chars)"
+              placeholder="Enter new password (min 6 chars)"
               className="w-full py-2.5 px-3.5 border border-main rounded-xl text-sm bg-input text-main placeholder-muted outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/10"
             />
           </div>

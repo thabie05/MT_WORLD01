@@ -69,7 +69,7 @@ function UserManagement({ currentUser }) {
     const username = form.username.trim();
     const fullName = form.fullName.trim();
     if (!username || !fullName) return flash('error', 'Username and full name are required.');
-    if (form.password.length < 4) return flash('error', 'Password must be at least 4 characters.');
+    if (form.password.length < 6) return flash('error', 'Password must be at least 6 characters.');
     if (!me) return flash('error', 'Only the super admin can add users.');
     setBusy(true);
     try {
@@ -159,7 +159,7 @@ function UserManagement({ currentUser }) {
   };
 
   const handleReset = async (u) => {
-    if (resetPw.length < 4) return flash('error', 'Password must be at least 4 characters.');
+    if (resetPw.length < 6) return flash('error', 'Password must be at least 6 characters.');
     setBusy(true);
     try {
       const latest = await readUsers();
@@ -208,7 +208,7 @@ function UserManagement({ currentUser }) {
         <input className={input} placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" />
         <input className={input} placeholder="Full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
         <input className={input} type="email" placeholder="Email (optional)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <input className={input} type="password" placeholder="Password (min 4 characters)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
+        <input className={input} type="password" placeholder="Password (min 6 characters)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
         <select className={input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
           {roleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>

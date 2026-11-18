@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { doc, getDoc, setDoc, updateDoc, deleteField, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, deleteField, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getSAHolidays, monthNames } from '../utils/holidays';
 import PasswordChangeModal from './PasswordChangeModal';
@@ -10,6 +10,8 @@ import ConfirmModal from './ConfirmModal';
 import EnrollFingerprintModal from './EnrollFingerprintModal';
 import AddEmployeeModal from './AddEmployeeModal';
 import { closeStaleShifts } from '../utils/attendanceWrites';
+import { subscribeRollcall, updateRollcall, purgeEmployeeAttendance, restoreBackup, migrateLegacy } from '../utils/rollcallStore';
+import { validateBackup } from '../utils/backupValidation';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSyncStatus } from '../contexts/SyncStatusContext';
 
@@ -62,38 +64,35 @@ const AttendanceRegister = forwardRef((
   const isUser = currentUser.role === 'user';
   const isViewer = currentUser.role === 'viewer';
 
-  // ---------- Firestore real‑time listener ----------
+  // ---------- Firestore real-time listener ----------
+  // Employees live in rollcall/data; attendance, notes, edits, time logs and history live
+  // in monthly documents (see utils/rollcallStore.js). The data arrives here already merged.
   useEffect(() => {
-    const docRef = doc(db, 'rollcall', 'data');
-    const unsubscribe = onSnapshot(
-      docRef,
-      { includeMetadataChanges: true },
-      (snap) => {
-        setSyncStatus({
-          fromCache: snap.metadata.fromCache,
-          hasPendingWrites: snap.metadata.hasPendingWrites,
-        });
+    // One-time move of the old single document into monthly documents (safe to call every load).
+    migrateLegacy().catch((err) => console.error('Data migration failed (will retry on next load):', err));
+
+    const unsubscribe = subscribeRollcall({
+      onState: (state) => {
+        setSyncStatus(state.meta);
         setConnectionError(false);
 
-        if (snap.exists()) {
-          const data = snap.data();
-          const savedAttendance = data.attendance || {};
+        if (state.exists) {
           const convertedAttendance = {};
-          for (const empId in savedAttendance) {
+          for (const empId in state.attendance) {
             convertedAttendance[empId] = {};
-            for (const dateKey in savedAttendance[empId]) {
-              const value = savedAttendance[empId][dateKey];
+            for (const dateKey in state.attendance[empId]) {
+              const value = state.attendance[empId][dateKey];
               if (value === true) convertedAttendance[empId][dateKey] = 'present';
               else if (value === false) convertedAttendance[empId][dateKey] = 'absent';
               else convertedAttendance[empId][dateKey] = value;
             }
           }
-          setEmployees(data.employees || []);
+          setEmployees(state.employees);
           setAttendance(convertedAttendance);
-          setEdits(data.edits || {});
-          setHistory(data.history || []);
-          setNotes(data.notes || {});
-          setTimeLogs(data.timeLogs || {});
+          setEdits(state.edits);
+          setHistory(state.history);
+          setNotes(state.notes);
+          setTimeLogs(state.timeLogs);
 
           if (!closedStaleShiftsRef.current) {
             closedStaleShiftsRef.current = true;
@@ -109,12 +108,12 @@ const AttendanceRegister = forwardRef((
         }
         setLoading(false);
       },
-      (err) => {
+      onError: (err) => {
         console.error('Failed to listen to data:', err);
         setConnectionError(true);
         setLoading(false);
-      }
-    );
+      },
+    });
     return () => unsubscribe();
   }, [setSyncStatus]);
 
@@ -191,14 +190,13 @@ const AttendanceRegister = forwardRef((
     setPopupNote('');
 
     try {
-      const docRef = doc(db, 'rollcall', 'data');
       const updates = {
         [`attendance.${employeeId}.${dateKey}`]: status,
         [`edits.${employeeId}-${dateKey}`]: newCount,
         history: arrayUnion(historyEntry),
       };
       if (trimmedNote) updates[`notes.${employeeId}-${dateKey}`] = trimmedNote;
-      await updateDoc(docRef, updates);
+      await updateRollcall(dateKey, updates);
     } catch (err) { console.error('Failed to save attendance mark:', err); }
   };
 
@@ -235,8 +233,7 @@ const AttendanceRegister = forwardRef((
     setPopupNote('');
 
     try {
-      const docRef = doc(db, 'rollcall', 'data');
-      await updateDoc(docRef, {
+      await updateRollcall(dateKey, {
         [`attendance.${employeeId}.${dateKey}`]: deleteField(),
         [`notes.${employeeId}-${dateKey}`]: deleteField(),
         [`edits.${employeeId}-${dateKey}`]: deleteField(),
@@ -305,7 +302,7 @@ const AttendanceRegister = forwardRef((
     };
     setHistory((prev) => [entry, ...prev]);
     try {
-      await updateDoc(doc(db, 'rollcall', 'data'), { history: arrayUnion(entry) });
+      await updateRollcall(entry.date, { history: arrayUnion(entry) });
     } catch (err) { console.error('Failed to write audit entry:', err); }
   };
 
@@ -365,11 +362,9 @@ const AttendanceRegister = forwardRef((
     setEmployees(updatedEmployees);
     setAttendance((prev) => { const updated = { ...prev }; delete updated[id]; return updated; });
     try {
-      const docRef = doc(db, 'rollcall', 'data');
-      await updateDoc(docRef, {
-        employees: updatedEmployees,
-        [`attendance.${id}`]: deleteField(),
-      });
+      // Attendance lives in the monthly documents now - remove this employee from each.
+      await purgeEmployeeAttendance(id);
+      await updateDoc(doc(db, 'rollcall', 'data'), { employees: updatedEmployees });
     } catch (err) { console.error('Failed to permanently delete employee:', err); }
   };
 
@@ -481,40 +476,16 @@ const AttendanceRegister = forwardRef((
         reader.onload = async (event) => {
           try {
             const data = JSON.parse(event.target.result);
-            const docRef = doc(db, 'rollcall', 'data');
-            try {
-              const currentSnap = await getDoc(docRef);
-              if (currentSnap.exists()) {
-                const safetyRef = doc(db, 'rollcall_backups', `pre-restore-${Date.now()}`);
-                await setDoc(safetyRef, currentSnap.data());
-              }
-            } catch (snapshotErr) {
-              console.error('Failed to snapshot data before restore:', snapshotErr);
-            }
+            const problem = validateBackup(data);
+            if (problem) { alert(`This backup can't be restored: ${problem}`); return; }
 
             if (data.employees) setEmployees(data.employees.map((emp) => ({ ...emp, isDeleted: emp.isDeleted ?? false })));
-            if (data.attendance) setAttendance(data.attendance);
-            if (data.edits) setEdits(data.edits || {});
-            if (data.history) setHistory(data.history || []);
-            if (data.notes) setNotes(data.notes || {});
-            if (data.timeLogs) setTimeLogs(data.timeLogs || {});
-
             try {
-              await setDoc(
-                docRef,
-                {
-                  employees: data.employees || [],
-                  attendance: data.attendance || {},
-                  edits: data.edits || {},
-                  history: data.history || [],
-                  notes: data.notes || {},
-                  timeLogs: data.timeLogs || {},
-                },
-                { merge: true }
-              );
+              await restoreBackup(data);
               alert('Backup restored successfully! (A safety copy of the previous cloud data was saved automatically.)');
             } catch (err) {
-              alert('Restored locally but failed to save to cloud.');
+              console.error('Restore failed:', err);
+              alert('Restore failed while saving to the cloud. Your existing data was not removed - please try again.');
             }
           } catch (err) {
             alert('Invalid backup file.');
@@ -553,8 +524,7 @@ const AttendanceRegister = forwardRef((
         editedAt: new Date().toISOString(),
       };
       setHistory((prev) => [historyEntry, ...prev]);
-      const docRef = doc(db, 'rollcall', 'data');
-      await updateDoc(docRef, {
+      await updateRollcall(dateKey, {
         [`attendance.${employeeId}.${dateKey}`]: previousStatus,
         [`edits.${employeeId}-${dateKey}`]: previousEditCount,
         history: arrayUnion(historyEntry),

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { loadUsers } from '../data/users';
-import { verifyPassword, hashPassword, isHashed } from '../utils/Passwords';
+import { verifyPassword, hashPassword, needsRehash } from '../utils/Passwords';
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -43,7 +43,7 @@ function Login({ onLogin }) {
       const user = await authenticate(users);
       if (user) {
         // Upgrade any plain-text passwords to hashes the first time they log in.
-        if (fromCloud && !isHashed(user.password)) {
+        if (fromCloud && needsRehash(user.password)) {
           try {
             const upgraded = await Promise.all(
               users.map(async (u) => (u.username === user.username ? { ...u, password: await hashPassword(password) } : u))

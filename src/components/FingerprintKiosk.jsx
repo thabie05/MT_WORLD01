@@ -4,6 +4,7 @@ import { loadUsers } from '../data/users';
 import { verifyPassword } from '../utils/Passwords';
 import { db } from '../firebase';
 import { recordFingerprintAction } from '../utils/attendanceWrites';
+import { monthDocRef, migrateLegacy } from '../utils/rollcallStore';
 import EnrollFingerprintModal from './EnrollFingerprintModal';
 import { useSyncStatus } from '../contexts/SyncStatusContext';
 
@@ -121,55 +122,65 @@ function FingerprintKiosk() {
     return () => clearInterval(id);
   }, []);
 
-  // Firestore listener (unchanged)
+  // Real-time listeners. Employees live in rollcall/data; clock logs live in the
+  // monthly document (see utils/rollcallStore.js). Re-subscribes when the month rolls over.
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   useEffect(() => {
-    const docRef = doc(db, 'rollcall', 'data');
-    const unsubscribe = onSnapshot(
-      docRef,
+    // One-time move of the old single document into monthly documents (safe to call every load).
+    migrateLegacy().catch((err) => console.error('Data migration failed (will retry on next load):', err));
+
+    let activeEmployees = [];
+    let monthLogs = {};
+
+    const publishToday = () => {
+      // "-YYYY-MM-DD" is always 11 chars; employee ids may contain hyphens, so slice from the end.
+      const d = new Date();
+      const suffix = `-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const employeeMap = {};
+      activeEmployees.forEach((emp) => { employeeMap[emp.id] = emp.name; });
+      const logs = [];
+      for (const key of Object.keys(monthLogs)) {
+        if (!key.endsWith(suffix)) continue;
+        const entry = monthLogs[key];
+        const employeeId = key.slice(0, -suffix.length);
+        logs.push({
+          employeeId,
+          employeeName: employeeMap[employeeId] || 'Unknown',
+          clockIn: entry.clockIn ? new Date(entry.clockIn) : null,
+          clockOut: entry.clockOut ? new Date(entry.clockOut) : null,
+        });
+      }
+      logs.sort((a, b) => (a.clockIn || 0) - (b.clockIn || 0) || a.employeeName.localeCompare(b.employeeName));
+      setTodayLogs(logs);
+    };
+
+    const unsubEmployees = onSnapshot(
+      doc(db, 'rollcall', 'data'),
       { includeMetadataChanges: true },
       (snap) => {
-        setSyncStatus({
-          fromCache: snap.metadata.fromCache,
-          hasPendingWrites: snap.metadata.hasPendingWrites,
-        });
+        setSyncStatus({ fromCache: snap.metadata.fromCache, hasPendingWrites: snap.metadata.hasPendingWrites });
         setIsOffline(snap.metadata.fromCache);
-
         if (!snap.exists()) return;
-        const data = snap.data();
-        const activeEmployees = (data.employees || []).filter((emp) => !emp.isDeleted);
+        activeEmployees = (snap.data().employees || []).filter((emp) => !emp.isDeleted);
         setEmployees(activeEmployees);
-        setTimeLogs(data.timeLogs || {});
-
-        const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
-        const employeeMap = {};
-        activeEmployees.forEach((emp) => {
-          employeeMap[emp.id] = emp.name;
-        });
-
-        const timeLogsData = data.timeLogs || {};
-        const logs = [];
-        for (const key of Object.keys(timeLogsData)) {
-          if (!key.endsWith(todayKey)) continue;
-          const entry = timeLogsData[key];
-          const employeeId = key.split('-')[0];
-          const employeeName = employeeMap[employeeId] || 'Unknown';
-          logs.push({
-            employeeId,
-            employeeName,
-            clockIn: entry.clockIn ? new Date(entry.clockIn) : null,
-            clockOut: entry.clockOut ? new Date(entry.clockOut) : null,
-          });
-        }
-        logs.sort((a, b) => (a.clockIn || 0) - (b.clockIn || 0) || a.employeeName.localeCompare(b.employeeName));
-        setTodayLogs(logs);
+        publishToday();
       },
       (err) => {
-        console.error('Failed to listen to data:', err);
+        console.error('Failed to listen to employees:', err);
         setSyncStatus({ fromCache: true, hasPendingWrites: false });
       }
     );
-    return () => unsubscribe();
-  }, [setSyncStatus]);
+    const unsubLogs = onSnapshot(
+      monthDocRef(monthKey),
+      (snap) => {
+        monthLogs = snap.exists() ? snap.data().timeLogs || {} : {};
+        setTimeLogs(monthLogs);
+        publishToday();
+      },
+      (err) => console.error('Failed to listen to time logs:', err)
+    );
+    return () => { unsubEmployees(); unsubLogs(); };
+  }, [setSyncStatus, monthKey]);
 
   // Fingerprint sync (unchanged)
   useEffect(() => {

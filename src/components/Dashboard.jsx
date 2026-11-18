@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db } from '../firebase';
+import { arrayUnion } from 'firebase/firestore';
+import { subscribeRollcall, updateRollcall, migrateLegacy } from '../utils/rollcallStore';
 import { useSyncStatus } from '../contexts/SyncStatusContext';
 import AttendanceRegister from './AttendanceRegister';
 import SettingsPage from './SettingsPage';
@@ -87,20 +87,16 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
     };
   }, []);
 
-  // Firestore listener
+  // Firestore listener (employees + monthly attendance/history, already merged)
   useEffect(() => {
-    const docRef = doc(db, 'rollcall', 'data');
-    const unsubscribe = onSnapshot(
-      docRef,
-      { includeMetadataChanges: true },
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const activeEmployees = (data.employees || []).filter((emp) => !emp.isDeleted);
-          setEmployees(activeEmployees);
-          setAttendance(data.attendance || {});
-          setHistory(data.history || []);
-          setTimeLogs(data.timeLogs || {});
+    migrateLegacy().catch((err) => console.error('Data migration failed (will retry on next load):', err));
+    const unsubscribe = subscribeRollcall({
+      onState: (state) => {
+        if (state.exists) {
+          setEmployees(state.employees.filter((emp) => !emp.isDeleted));
+          setAttendance(state.attendance);
+          setHistory(state.history);
+          setTimeLogs(state.timeLogs);
         } else {
           setEmployees([]);
           setAttendance({});
@@ -109,11 +105,11 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
         }
         setLoading(false);
       },
-      (err) => {
+      onError: (err) => {
         console.error('Dashboard listener error:', err);
         setLoading(false);
-      }
-    );
+      },
+    });
     return () => unsubscribe();
   }, []);
 
@@ -231,7 +227,7 @@ function Dashboard({ currentUser, onLogout, onPasswordChanged }) {
           type: 'employee',
         };
         setHistory((prev) => [entry, ...prev]);
-        updateDoc(doc(db, 'rollcall', 'data'), { history: arrayUnion(entry) }).catch((e) => console.error('Audit write failed:', e));
+        updateRollcall(entry.date, { history: arrayUnion(entry) }).catch((e) => console.error('Audit write failed:', e));
       }
     }
   };
